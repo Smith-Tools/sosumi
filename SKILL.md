@@ -1,18 +1,47 @@
 ---
 name: sosumi
-description: Comprehensive Apple documentation and WWDC skill providing instant access to Swift language, Apple frameworks, visionOS, Xcode tools, and WWDC content with intelligent search and context-efficient loading.
+description: Apple Documentation & WWDC Integration - Real-time access to Apple frameworks (Swift, SwiftUI, RealityKit, visionOS), API signatures, code examples, and WWDC transcripts (2018-2025). Use for API lookups, documentation, framework questions, WWDC context, and Apple best practices.
 allowed-tools: [WebSearch, Read, Bash, Write, Edit, Grep, Glob]
 ---
 
 # Sosumi - Apple Documentation & WWDC Skill
 
-Sosumi provides comprehensive access to Apple's developer ecosystem including:
+**Comprehensive access to Apple's entire developer ecosystem** with real-time API documentation, searchable WWDC transcripts (2018-2025), code examples, and design guidelines.
 
-- **📚 Apple Documentation** - Swift language, SwiftUI, UIKit, Core Data, and more
-- **🎥 WWDC Content** - Session transcripts, videos, and key insights
-- **🎨 Design Guidelines** - Human Interface Guidelines and design resources
+## When to Use Sosumi
+
+**Automatically triggered for:**
+- ✅ API method/function lookups ("What's the signature for playAnimation()?")
+- ✅ Framework documentation ("How do I use RealityKit?")
+- ✅ WWDC session searches ("Show me WWDC about RealityComposer Pro")
+- ✅ Code examples ("Example of AnimationPlaybackController usage")
+- ✅ Swift API references ("SwiftUI View properties", "Combine operators")
+- ✅ Apple best practices ("How does Apple recommend...")
+- ✅ Timeline/animation APIs ("AnimationResource", "PlaybackController")
+
+**Manual trigger:** `/skill sosumi search <query>`
+
+### What Sosumi Provides
+
+- **📚 Apple Documentation** - Swift language, SwiftUI, UIKit, Core Data, and 50+ frameworks
+- **🎥 WWDC Content** - Session transcripts 2018-2025, searchable and cached
+- **🎨 Design Guidelines** - Human Interface Guidelines for all platforms
 - **🔍 Intelligent Search** - Unified search across all content types
-- **⚡ Performance Optimized** - Hybrid caching with bundled data + live fetching
+- **⚡ Real-Time + Cached** - Live Apple API access + fast cached WWDC content
+
+## Trigger Detection
+
+Sosumi is automatically invoked when queries contain:
+- **API terms:** `playAnimation`, `AnimationPlaybackController`, `AnimationResource`, `availableAnimations`
+- **Framework names:** `RealityKit`, `SwiftUI`, `Combine`, `Foundation`, `RealityComposer Pro`
+- **Documentation requests:** "How do I...", "What's the API for...", "Show me example of..."
+- **WWDC searches:** Requests for sessions, Apple guidance, official examples
+- **Timeline/Animation:** Questions about animations, timelines, playback, keyframes
+
+**If sosumi doesn't trigger automatically, use explicit command:**
+```bash
+/skill sosumi search "your query"
+```
 
 ## Quick Start
 
@@ -28,6 +57,10 @@ Sosumi provides comprehensive access to Apple's developer ecosystem including:
 
 # Search for SharePlay/Group Activities specifically
 /skill sosumi shareplay
+
+# Search for RealityKit/Timeline content
+/skill sosumi search "Reality Composer Pro timeline animation"
+/skill sosumi wwdc "RealityComposer Pro"
 
 # Update bundled data
 /skill sosumi update --force
@@ -210,6 +243,24 @@ Clear cache or show cache usage statistics.
 
 # Compare implementations
 /skill sosumi search "UITableView SwiftUI List"
+```
+
+### RealityKit Timeline Animation (RCP)
+```bash
+# Get AnimationPlaybackController API
+/skill sosumi search "AnimationPlaybackController" --type documentation
+
+# Find WWDC sessions on RealityComposer Pro
+/skill sosumi wwdc "RealityComposer Pro timeline"
+
+# Get AnimationResource documentation
+/skill sosumi fetch realitykit/animationresource
+
+# Search for timeline playback patterns
+/skill sosumi search "Reality Composer Pro timeline animation playback"
+
+# WWDC guidance on RCP animations
+/skill sosumi wwdc "RealityKit animation" --limit 5
 ```
 
 ## Performance
