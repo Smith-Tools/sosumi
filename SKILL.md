@@ -1,6 +1,6 @@
 ---
 name: sosumi
-description: Apple Documentation & WWDC Integration - Real-time access to Apple frameworks (Swift, SwiftUI, RealityKit, visionOS), API signatures, code examples, and WWDC transcripts (2018-2025). Use for API lookups, documentation, framework questions, WWDC context, and Apple best practices.
+description: Apple API documentation and WWDC sessions. Searches Swift, SwiftUI, UIKit, RealityKit, Combine, Foundation, CoreData, URLSession, AVFoundation, visionOS APIs. Gets method signatures, code examples, WWDC transcripts (2018-2025). Use for "How do I use [API]?", "What's the signature for playAnimation?", "WWDC about RealityKit", "AnimationPlaybackController example", "GroupActivities API", framework documentation, Apple code samples.
 allowed-tools: [WebSearch, Read, Bash, Write, Edit, Grep, Glob]
 ---
 
