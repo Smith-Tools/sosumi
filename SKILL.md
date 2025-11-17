@@ -31,16 +31,40 @@ allowed-tools: [WebSearch, Read, Bash, Write, Edit, Grep, Glob]
 
 ## Trigger Detection
 
-Sosumi is automatically invoked when queries contain:
-- **API terms:** `playAnimation`, `AnimationPlaybackController`, `AnimationResource`, `availableAnimations`
-- **Framework names:** `RealityKit`, `SwiftUI`, `Combine`, `Foundation`, `RealityComposer Pro`
-- **Documentation requests:** "How do I...", "What's the API for...", "Show me example of..."
-- **WWDC searches:** Requests for sessions, Apple guidance, official examples
-- **Timeline/Animation:** Questions about animations, timelines, playback, keyframes
+Sosumi is automatically invoked when queries contain any of:
+
+**Framework names:**
+- Core frameworks: `SwiftUI`, `Combine`, `Foundation`, `Concurrency`
+- Platform-specific: `UIKit`, `AppKit`, `WatchKit`, `RealityKit`, `visionOS`
+- Data/Storage: `CoreData`, `CloudKit`, `SQLite`, `UserDefaults`
+- Networking: `URLSession`, `Network`, `WebSocket`
+- Media: `AVFoundation`, `Vision`, `CoreML`, `ImageIO`
+- Graphics: `Metal`, `SceneKit`, `SpriteKit`, `OpenGL`
+- Spatial: `ARKit`, `CoreLocation`, `MapKit`, `SensorKit`
+- Developer tools: `Xcode`, `SwiftSyntax`, `Testing`, `Instruments`
+
+**Query patterns:**
+- API lookups: "What's the signature for...", "How do I use...", "Methods for..."
+- Framework questions: "SwiftUI animation", "Combine operators", "RealityKit timeline"
+- Code examples: "Example of...", "Show me how to...", "Code sample for..."
+- WWDC searches: "WWDC session on...", "Apple showed...", "How does Apple recommend..."
+- Apple best practices: "Apple's way to...", "Official documentation for..."
+
+**Common examples (full list):**
+- "What does `@State` do?" → Auto-triggers
+- "How do I use Combine with async/await?" → Auto-triggers
+- "Show me URLSession code example" → Auto-triggers
+- "Author timelines in Reality Composer Pro" → Auto-triggers
+- "WWDC about SwiftUI navigation" → Auto-triggers
+- "GroupActivities API reference" → Auto-triggers
+- "CloudKit sync patterns" → Auto-triggers
+- "RealityKit AnimationPlaybackController" → Auto-triggers
 
 **If sosumi doesn't trigger automatically, use explicit command:**
 ```bash
 /skill sosumi search "your query"
+/skill sosumi wwdc "topic"
+/skill sosumi fetch framework/api
 ```
 
 ## Quick Start
