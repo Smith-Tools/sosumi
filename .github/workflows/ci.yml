@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test on macOS
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '5.9'
+
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v3
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+
+    - name: Build
+      run: swift build -c release
+
+    - name: Run tests
+      run: swift test --enable-code-coverage
+
+    - name: Build documentation
+      run: |
+        if command -v docc &> /dev/null; then
+          docc convert Sources/SosumiCore --output-path docs
+        fi
+
+    - name: Create distribution package
+      run: make dist
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: sosumi-dist
+        path: dist/
+        retention-days: 30
+
+  validate:
+    name: Validate Skill Manifest
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Validate SKILL.md
+      run: |
+        if [ ! -f "SKILL.md" ]; then
+          echo "SKILL.md not found"
+          exit 1
+        fi
+
+        # Check required frontmatter
+        if ! grep -q "^name:" SKILL.md; then
+          echo "SKILL.md missing name field"
+          exit 1
+        fi
+
+        if ! grep -q "^description:" SKILL.md; then
+          echo "SKILL.md missing description field"
+          exit 1
+        fi
+
+        echo "✅ SKILL.md validation passed"
+
+  security:
+    name: Security Scan
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run security audit
+      run: |
+        echo "🔒 Running security scan..."
+
+        # Check for sensitive patterns
+        if grep -r -i "password\\|secret\\|key.*=" --include="*.swift" --include="*.md" Sources/; then
+          echo "⚠️  Potential sensitive information found"
+          exit 1
+        fi
+
+        # Check for hardcoded encryption keys
+        if grep -r "AES\\|encryption\\|decrypt" --include="*.swift" Sources/ | grep -v "//.*TODO\|//.*Example"; then
+          echo "⚠️  Potential encryption code found in public repository"
+          exit 1
+        fi
+
+        echo "✅ Security scan passed"
+
+  performance:
+    name: Performance Tests
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: '5.9'
+
+    - name: Build
+      run: swift build -c release
+
+    - name: Run performance tests
+      run: |
+        # Test build performance
+        echo "🔨 Testing build performance..."
+        time swift build -c release
+
+        # Test search performance (if data available)
+        if [ -f "Resources/wwdc_sessions_test.compressed" ]; then
+          echo "🔍 Testing search performance..."
+          time .build/release/sosumi search "SwiftUI" --test-mode
+        fi
+
+        echo "✅ Performance tests completed"

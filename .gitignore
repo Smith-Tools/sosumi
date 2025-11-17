@@ -1,0 +1,32 @@
+# Swift
+.build/
+.swiftpm/
+xcode/
+Packages/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Distribution
+dist/
+*.tar.gz
+
+# Local data
+*.local
+local.*
+
+# Environment
+.env
+.env.*
+
+# Debug
+*.log
+debug.*
+
+# Temporary
+tmp/
+temp/
