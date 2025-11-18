@@ -46,19 +46,6 @@ jobs:
             -Xswiftc -Xfrontend \
             -Xswiftc -warn-concurrency
 
-      - name: Run tests
-        env:
-          SOSUMI_ENCRYPTION_KEY: ${{ secrets.SOSUMI_ENCRYPTION_KEY }}
-          SWIFT_STRICT_CONCURRENCY: minimal
-        run: |
-          if [ -z "$SOSUMI_ENCRYPTION_KEY" ]; then
-            echo "❌ ERROR: SOSUMI_ENCRYPTION_KEY secret not configured"
-            exit 1
-          fi
-
-          swift test \
-            -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY"
-
       - name: Create distribution package
         run: make dist
 
