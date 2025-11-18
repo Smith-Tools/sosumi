@@ -1,0 +1,92 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'  # Matches v1.0.0, v1.1.0, etc.
+
+jobs:
+  release:
+    name: Build Release Binary
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '5.9'
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v3
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build Release Binary
+        env:
+          SOSUMI_ENCRYPTION_KEY: ${{ secrets.SOSUMI_ENCRYPTION_KEY }}
+        run: |
+          echo "🔐 Building with production encryption key..."
+
+          # Verify key is set
+          if [ -z "$SOSUMI_ENCRYPTION_KEY" ]; then
+            echo "❌ ERROR: SOSUMI_ENCRYPTION_KEY secret not configured"
+            exit 1
+          fi
+
+          # Build with key injection
+          swift build -c release \
+            -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY"
+
+      - name: Run tests
+        run: swift test --enable-code-coverage
+
+      - name: Create distribution package
+        run: make dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/sosumi
+            dist/sosumi-*.tar.gz
+          body: |
+            ## Production Release ${{ github.ref_name }}
+
+            ### Installation
+            ```bash
+            # Download and install
+            wget https://github.com/Smith-Tools/sosumi/releases/download/${{ github.ref_name }}/sosumi
+            chmod +x sosumi
+            sudo mv sosumi /usr/local/bin/
+
+            # Verify installation
+            sosumi search "SwiftUI"
+            ```
+
+            ### Features
+            - Enhanced WWDC search with encrypted content
+            - Production-ready encryption with embedded key
+            - No configuration needed
+
+            ### Security
+            - AES-256-GCM encryption for all content
+            - Production encryption key embedded in binary
+            - Safe for public distribution
+
+            See [KEY_MANAGEMENT.md](https://github.com/Smith-Tools/sosumi/blob/main/KEY_MANAGEMENT.md) for details.
+          draft: false
+          prerelease: false
+
+      - name: Upload to GitHub Pages (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+          retention-days: 90
