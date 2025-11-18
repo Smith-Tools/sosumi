@@ -6,8 +6,16 @@ import SosumiCore
 struct SosumiCLI: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
-        version: "1.1.0",
-        subcommands: [SearchCommand.self, WWDCCommand.self, UpdateCommand.self, TestCommand.self]
+        version: "1.2.0",
+        subcommands: [
+            SearchCommand.self,
+            WWDCCommand.self,
+            WWDCSessionCommand.self,
+            WWDCYearCommand.self,
+            WWDCStatsCommand.self,
+            UpdateCommand.self,
+            TestCommand.self
+        ]
     )
 
     struct SearchCommand: ParsableCommand {
@@ -53,35 +61,245 @@ struct SosumiCLI: ParsableCommand {
         @Argument(help: "WWDC search query")
         var query: String
 
-        @Option(name: .long, help: "Show detailed results with formatting")
+        @Option(name: .long, help: "Output mode: user (snippet + link) or agent (full transcript)")
+        var mode: String = "user"
+
+        @Option(name: .long, help: "Output format: markdown or json")
+        var format: String = "markdown"
+
+        @Option(name: .long, help: "Limit number of results")
+        var limit: Int = 20
+
+        @Option(name: .long, help: "Path to encrypted bundle")
+        var bundle: String?
+
+        @Flag(name: .long, help: "Show detailed results with formatting (legacy)")
         var detailed = false
 
         func run() throws {
+            // Validate mode
+            let outputMode: MarkdownFormatter.OutputMode
+            switch mode.lowercased() {
+            case "user":
+                outputMode = .user
+            case "agent":
+                outputMode = .agent
+            default:
+                print("❌ Invalid mode: \(mode). Use 'user' or 'agent'.")
+                throw ExitCode.failure
+            }
+
+            // Validate format
+            let outputFormat: MarkdownFormatter.OutputFormat
+            switch format.lowercased() {
+            case "markdown":
+                outputFormat = .markdown
+            case "json":
+                outputFormat = .json
+            default:
+                print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                throw ExitCode.failure
+            }
+
+            // If detailed flag is used, switch to agent mode for backward compatibility
+            let finalMode = detailed ? .agent : outputMode
+
             print("🎥 Searching WWDC sessions for: \(query)")
             print(String(repeating: "=", count: 50))
 
-            let results = SosumiCore.searchWWDC(query: query)
+            do {
+                // Use new database search
+                let result = try WWDCSearchEngine.searchWithDatabase(
+                    query: query,
+                    mode: finalMode,
+                    format: outputFormat,
+                    bundlePath: bundle,
+                    limit: limit
+                )
 
-            if results.isEmpty {
-                print("❌ No WWDC sessions found for: \(query)")
-                print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
-                return
+                print(result)
+            } catch {
+                // Fallback to legacy search with error handling
+                print("⚠️  Database search failed, trying legacy search: \(error)")
+
+                let results = SosumiCore.searchWWDC(query: query)
+
+                if results.isEmpty {
+                    print("❌ No WWDC sessions found for: \(query)")
+                    print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
+                    return
+                }
+
+                if detailed || finalMode == .agent {
+                    let formattedResults = SosumiCore.formatWWDCResults(results, query: query)
+                    print(formattedResults)
+                } else {
+                    print("📺 Found \(results.count) sessions:")
+                    for (index, result) in results.enumerated() {
+                        print("\(index + 1). \(result.title) (\(result.year))")
+                        print("   Score: \(String(format: "%.1f", result.relevanceScore))")
+                        if let segments = result.timeSegments, !segments.isEmpty {
+                            print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
+                        }
+                        print("   \(result.excerpt)")
+                        print()
+                    }
+                }
+            }
+        }
+    }
+
+    struct WWDCSessionCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Get a specific WWDC session by ID"
+        )
+
+        @Argument(help: "WWDC session ID (e.g., wwdc2024-10102)")
+        var sessionId: String
+
+        @Option(name: .long, help: "Output mode: user (snippet + link) or agent (full transcript)")
+        var mode: String = "user"
+
+        @Option(name: .long, help: "Output format: markdown or json")
+        var format: String = "markdown"
+
+        @Option(name: .long, help: "Path to encrypted bundle")
+        var bundle: String?
+
+        func run() throws {
+            // Validate mode
+            let outputMode: MarkdownFormatter.OutputMode
+            switch mode.lowercased() {
+            case "user":
+                outputMode = .user
+            case "agent":
+                outputMode = .agent
+            default:
+                print("❌ Invalid mode: \(mode). Use 'user' or 'agent'.")
+                throw ExitCode.failure
             }
 
-            if detailed {
-                let formattedResults = SosumiCore.formatWWDCResults(results, query: query)
-                print(formattedResults)
-            } else {
-                print("📺 Found \(results.count) sessions:")
-                for (index, result) in results.enumerated() {
-                    print("\(index + 1). \(result.title) (\(result.year))")
-                    print("   Score: \(String(format: "%.1f", result.relevanceScore))")
-                    if let segments = result.timeSegments, !segments.isEmpty {
-                        print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
-                    }
-                    print("   \(result.excerpt)")
-                    print()
+            // Validate format
+            let outputFormat: MarkdownFormatter.OutputFormat
+            switch format.lowercased() {
+            case "markdown":
+                outputFormat = .markdown
+            case "json":
+                outputFormat = .json
+            default:
+                print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                throw ExitCode.failure
+            }
+
+            print("📺 Fetching WWDC session: \(sessionId)")
+            print(String(repeating: "=", count: 50))
+
+            do {
+                if let result = try WWDCSearchEngine.getSessionById(
+                    sessionId: sessionId,
+                    mode: outputMode,
+                    format: outputFormat,
+                    bundlePath: bundle
+                ) {
+                    print(result)
+                } else {
+                    print("❌ Session not found: \(sessionId)")
+                    print("💡 Check the session ID format (e.g., wwdc2024-10102)")
                 }
+            } catch {
+                print("❌ Failed to fetch session: \(error)")
+            }
+        }
+    }
+
+    struct WWDCYearCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "List WWDC sessions by year"
+        )
+
+        @Argument(help: "WWDC year (e.g., 2024)")
+        var year: Int
+
+        @Option(name: .long, help: "Output mode: user (snippet + link) or agent (full transcript)")
+        var mode: String = "user"
+
+        @Option(name: .long, help: "Output format: markdown or json")
+        var format: String = "markdown"
+
+        @Option(name: .long, help: "Limit number of results")
+        var limit: Int = 50
+
+        @Option(name: .long, help: "Path to encrypted bundle")
+        var bundle: String?
+
+        func run() throws {
+            // Validate year
+            let currentYear = Calendar.current.component(.year, from: Date())
+            if year < 2007 || year > currentYear + 1 {
+                print("❌ Invalid year: \(year). WWDC started in 2007 and current year is \(currentYear).")
+                throw ExitCode.failure
+            }
+
+            // Validate mode
+            let outputMode: MarkdownFormatter.OutputMode
+            switch mode.lowercased() {
+            case "user":
+                outputMode = .user
+            case "agent":
+                outputMode = .agent
+            default:
+                print("❌ Invalid mode: \(mode). Use 'user' or 'agent'.")
+                throw ExitCode.failure
+            }
+
+            // Validate format
+            let outputFormat: MarkdownFormatter.OutputFormat
+            switch format.lowercased() {
+            case "markdown":
+                outputFormat = .markdown
+            case "json":
+                outputFormat = .json
+            default:
+                print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                throw ExitCode.failure
+            }
+
+            print("📅 Fetching WWDC sessions for year: \(year)")
+            print(String(repeating: "=", count: 50))
+
+            do {
+                let result = try WWDCSearchEngine.getSessionsByYear(
+                    year: year,
+                    mode: outputMode,
+                    format: outputFormat,
+                    bundlePath: bundle,
+                    limit: limit
+                )
+
+                print(result)
+            } catch {
+                print("❌ Failed to fetch sessions for year \(year): \(error)")
+            }
+        }
+    }
+
+    struct WWDCStatsCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Show WWDC database statistics"
+        )
+
+        @Option(name: .long, help: "Path to encrypted bundle")
+        var bundle: String?
+
+        func run() throws {
+            print("📊 WWDC Database Statistics")
+            print(String(repeating: "=", count: 50))
+
+            do {
+                let result = try WWDCSearchEngine.getDatabaseStatistics(bundlePath: bundle)
+                print(result)
+            } catch {
+                print("❌ Failed to fetch database statistics: \(error)")
             }
         }
     }
@@ -172,7 +390,17 @@ struct SosumiCLI: ParsableCommand {
 
             } else {
                 print("❌ Data file NOT found: \(dataPath)")
-                print("💡 Run sosumi update to generate data file")
+                print()
+                print("📋 About this error:")
+                print("   This is a DEVELOPMENT BUILD. It uses mock data for testing.")
+                print()
+                print("🎯 What you probably want:")
+                print("   Download the production binary from releases:")
+                print("   https://github.com/Smith-Tools/sosumi/releases")
+                print()
+                print("💡 If you're developing sosumi:")
+                print("   This is expected in source builds. WWDC search uses fake data.")
+                print("   See INSTALLATION.md for setup instructions.")
             }
 
             // Test mock data fallback

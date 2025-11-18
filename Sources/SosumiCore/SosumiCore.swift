@@ -1,7 +1,7 @@
 import Foundation
 
 public struct SosumiCore {
-    public static let version = "1.1.0"  // Updated for enhanced search
+    public static let version = "1.2.0"  // Production-ready with enhanced search and comprehensive testing
 
     public init() {}
 
