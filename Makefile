@@ -74,7 +74,7 @@ dist: build
 	fi
 
 	# Create installation script
-	@{
+	@{ \
 		echo '#!/bin/bash'; \
 		echo 'set -e'; \
 		echo 'SCRIPT_DIR="$$(cd "$$(dirname "$${BASH_SOURCE[0]}")" && pwd)"'; \
@@ -90,7 +90,7 @@ dist: build
 		echo 'echo "🎉 Installation complete!"'; \
 		echo 'echo "Usage: sosumi search \"query\""'; \
 		echo 'echo "       /skill sosumi search \"query\""'; \
-	} > dist/install.sh
+	;} > dist/install.sh
 	chmod +x dist/install.sh
 
 	# Create package
