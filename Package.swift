@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -30,20 +30,14 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
             ],
-            path: "Sources/SosumiCLI",
-            swiftSettings: [
-                .unsafeFlags(["-Xfrontend", "-disable-availability-checking", "-Xfrontend", "-strict-concurrency=off"])
-            ]
+            path: "Sources/SosumiCLI"
         ),
         .target(
             name: "SosumiCore",
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
             ],
-            path: "Sources/SosumiCore",
-            swiftSettings: [
-                .unsafeFlags(["-Xfrontend", "-disable-availability-checking", "-Xfrontend", "-strict-concurrency=off"])
-            ]
+            path: "Sources/SosumiCore"
         ),
     ]
 )
