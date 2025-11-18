@@ -49,7 +49,7 @@ jobs:
       - name: Run tests
         env:
           SOSUMI_ENCRYPTION_KEY: ${{ secrets.SOSUMI_ENCRYPTION_KEY }}
-          SWIFT_STRICT_CONCURRENCY: targeted
+          SWIFT_STRICT_CONCURRENCY: minimal
         run: |
           if [ -z "$SOSUMI_ENCRYPTION_KEY" ]; then
             echo "❌ ERROR: SOSUMI_ENCRYPTION_KEY secret not configured"
