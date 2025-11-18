@@ -74,23 +74,23 @@ dist: build
 	fi
 
 	# Create installation script
-	@{ \
-		echo '#!/bin/bash'; \
-		echo 'set -e'; \
-		echo 'SCRIPT_DIR="$$(cd "$$(dirname "$${BASH_SOURCE[0]}")" && pwd)"'; \
-		echo 'echo "🚀 Installing sosumi..."'; \
-		echo 'mkdir -p $$HOME/.local/bin'; \
-		echo 'cp "$$SCRIPT_DIR/sosumi" $$HOME/.local/bin/'; \
-		echo 'mkdir -p $$HOME/.claude/skills'; \
-		echo 'cp "$$SCRIPT_DIR/SKILL.md" $$HOME/.claude/skills/sosumi.md'; \
-		echo 'if [ -d "$$SCRIPT_DIR/Resources" ]; then'; \
-		echo '    mkdir -p $$HOME/.local/share/sosumi'; \
-		echo '    cp -r "$$SCRIPT_DIR/Resources"/* $$HOME/.local/share/sosumi/'; \
-		echo 'fi'; \
-		echo 'echo "🎉 Installation complete!"'; \
-		echo 'echo "Usage: sosumi search \"query\""'; \
-		echo 'echo "       /skill sosumi search \"query\""';
-	;} > dist/install.sh
+	@printf '%s\n' \
+		'#!/bin/bash' \
+		'set -e' \
+		'SCRIPT_DIR="$$(cd "$$(dirname "$${BASH_SOURCE[0]}")" && pwd)"' \
+		'echo "🚀 Installing sosumi..."' \
+		'mkdir -p $$HOME/.local/bin' \
+		'cp "$$SCRIPT_DIR/sosumi" $$HOME/.local/bin/' \
+		'mkdir -p $$HOME/.claude/skills' \
+		'cp "$$SCRIPT_DIR/SKILL.md" $$HOME/.claude/skills/sosumi.md' \
+		'if [ -d "$$SCRIPT_DIR/Resources" ]; then' \
+		'    mkdir -p $$HOME/.local/share/sosumi' \
+		'    cp -r "$$SCRIPT_DIR/Resources"/* $$HOME/.local/share/sosumi/' \
+		'fi' \
+		'echo "🎉 Installation complete!"' \
+		'echo "Usage: sosumi search \"query\""' \
+		'echo "       /skill sosumi search \"query\""' \
+	> dist/install.sh
 	chmod +x dist/install.sh
 
 	# Create package
