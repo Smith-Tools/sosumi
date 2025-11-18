@@ -9,6 +9,8 @@ public enum SearchError: Error {
     case compressionNotSupported
     case realDataFailed
     case decryptionFailed
+    case bundleNotFound
+    case databaseError
 }
 
 // MARK: - Decryption Helper
@@ -98,7 +100,73 @@ public struct WWDCSearchEngine {
         }
     }
 
-    // MARK: - Search Methods
+    // MARK: - New Search Methods with Database Support
+
+    /// Search using the new SQLite database system
+    public static func searchWithDatabase(
+        query: String,
+        mode: MarkdownFormatter.OutputMode = .user,
+        format: MarkdownFormatter.OutputFormat = .markdown,
+        bundlePath: String? = nil,
+        limit: Int = 20
+    ) throws -> String {
+        do {
+            // Try to use the new database system if available
+            let results = try performDatabaseSearch(query: query, bundlePath: bundlePath, limit: limit)
+            return MarkdownFormatter.formatSearchResults(results, query: query, mode: mode, format: format)
+        } catch {
+            // Fallback to legacy search if database not available
+            print("⚠️  Database search failed, using legacy search: \(error)")
+            return try performLegacySearch(query: query, mode: mode, format: format)
+        }
+    }
+
+    /// Get a specific session by ID
+    public static func getSessionById(
+        sessionId: String,
+        mode: MarkdownFormatter.OutputMode = .user,
+        format: MarkdownFormatter.OutputFormat = .markdown,
+        bundlePath: String? = nil
+    ) throws -> String? {
+        do {
+            let session = try performDatabaseSessionLookup(sessionId: sessionId, bundlePath: bundlePath)
+            guard let session = session else { return nil }
+            return MarkdownFormatter.formatSession(session, mode: mode, format: format)
+        } catch {
+            print("⚠️  Database lookup failed for session \(sessionId): \(error)")
+            return nil
+        }
+    }
+
+    /// Get sessions by year
+    public static func getSessionsByYear(
+        year: Int,
+        mode: MarkdownFormatter.OutputMode = .user,
+        format: MarkdownFormatter.OutputFormat = .markdown,
+        bundlePath: String? = nil,
+        limit: Int = 50
+    ) throws -> String {
+        do {
+            let sessions = try performDatabaseYearLookup(year: year, bundlePath: bundlePath, limit: limit)
+            return MarkdownFormatter.formatSessions(sessions, mode: mode, format: format)
+        } catch {
+            print("⚠️  Database year lookup failed for \(year): \(error)")
+            return "# Error\n\nFailed to load sessions for year \(year). The database might not be available.\n"
+        }
+    }
+
+    /// Get database statistics
+    public static func getDatabaseStatistics(bundlePath: String? = nil) throws -> String {
+        do {
+            let stats = try performDatabaseStatistics(bundlePath: bundlePath)
+            return formatDatabaseStatistics(stats)
+        } catch {
+            print("⚠️  Database statistics unavailable: \(error)")
+            return "# Database Unavailable\n\nThe WWDC database is not available in this build.\n"
+        }
+    }
+
+    // MARK: - Legacy Search Method
 
     public static func search(query: String, in dataPath: String, forceRealData: Bool = true) throws -> [SearchResult] {
         // Try to load real data first, fail loudly if requested
@@ -113,9 +181,22 @@ public struct WWDCSearchEngine {
         } catch {
             if forceRealData {
                 // Fail loudly - don't silently fallback to mock data
-                print("❌ REAL DATA FAILED: \(error)")
-                print("🔍 Data path: \(dataPath)")
-                print("💡 Check if data file exists and is properly obfuscated")
+                print("❌ REAL DATA NOT AVAILABLE")
+                print()
+                print("📋 About this error:")
+                print("   You're using a DEVELOPMENT BUILD (built from source).")
+                print("   Development builds intentionally use fake/mock data.")
+                print()
+                print("🎯 To use real WWDC data:")
+                print("   1. Download the production binary from releases:")
+                print("      https://github.com/Smith-Tools/sosumi/releases")
+                print("   2. Run: chmod +x sosumi-macos")
+                print("   3. Run: ./sosumi-macos wwdc \"\(query)\"")
+                print()
+                print("💡 For development:")
+                print("   - This is expected behavior in source builds")
+                print("   - See INSTALLATION.md for contributor setup")
+                print("   - Mock data is used intentionally for testing")
                 throw SearchError.realDataFailed
             } else {
                 print("⚠️  Could not load real WWDC data, falling back to mock: \(error)")
@@ -124,6 +205,196 @@ public struct WWDCSearchEngine {
 
         // Only fallback to mock data if explicitly allowed
         return createEnhancedMockResults(query: query)
+    }
+
+    // MARK: - Private Database Methods
+
+    private static func performDatabaseSearch(query: String, bundlePath: String?, limit: Int) throws -> [WWDCDatabase.SearchResult] {
+        // Get encryption key
+        guard let key = getDatabaseEncryptionKey() else {
+            throw WWDCDatabaseError.keyNotFound
+        }
+
+        // Determine bundle path
+        let bundle = bundlePath ?? getEmbeddedBundlePath()
+        guard FileManager.default.fileExists(atPath: bundle) else {
+            throw SearchError.bundleNotFound
+        }
+
+        // Decrypt and extract bundle
+        let (_, databasePath, _) = try WWDCDatabase.decryptBundle(atPath: bundle, key: key)
+
+        // Open database and perform search
+        let database = WWDCDatabase(databasePath: databasePath)
+        defer { database.close() }
+
+        return try database.search(query: query, limit: limit)
+    }
+
+    private static func performDatabaseSessionLookup(sessionId: String, bundlePath: String?) throws -> WWDCDatabase.Session? {
+        // Get encryption key
+        guard let key = getDatabaseEncryptionKey() else {
+            throw WWDCDatabaseError.keyNotFound
+        }
+
+        // Determine bundle path
+        let bundle = bundlePath ?? getEmbeddedBundlePath()
+        guard FileManager.default.fileExists(atPath: bundle) else {
+            throw SearchError.bundleNotFound
+        }
+
+        // Decrypt and extract bundle
+        let (_, databasePath, _) = try WWDCDatabase.decryptBundle(atPath: bundle, key: key)
+
+        // Open database and lookup session
+        let database = WWDCDatabase(databasePath: databasePath)
+        defer { database.close() }
+
+        return try database.getSession(byId: sessionId)
+    }
+
+    private static func performDatabaseYearLookup(year: Int, bundlePath: String?, limit: Int) throws -> [WWDCDatabase.Session] {
+        // Get encryption key
+        guard let key = getDatabaseEncryptionKey() else {
+            throw WWDCDatabaseError.keyNotFound
+        }
+
+        // Determine bundle path
+        let bundle = bundlePath ?? getEmbeddedBundlePath()
+        guard FileManager.default.fileExists(atPath: bundle) else {
+            throw SearchError.bundleNotFound
+        }
+
+        // Decrypt and extract bundle
+        let (_, databasePath, _) = try WWDCDatabase.decryptBundle(atPath: bundle, key: key)
+
+        // Open database and get sessions
+        let database = WWDCDatabase(databasePath: databasePath)
+        defer { database.close() }
+
+        return try database.getSessionsByYear(year, limit: limit)
+    }
+
+    private static func performDatabaseStatistics(bundlePath: String?) throws -> [String: Any] {
+        // Get encryption key
+        guard let key = getDatabaseEncryptionKey() else {
+            throw WWDCDatabaseError.keyNotFound
+        }
+
+        // Determine bundle path
+        let bundle = bundlePath ?? getEmbeddedBundlePath()
+        guard FileManager.default.fileExists(atPath: bundle) else {
+            throw SearchError.bundleNotFound
+        }
+
+        // Decrypt and extract bundle
+        let (_, databasePath, _) = try WWDCDatabase.decryptBundle(atPath: bundle, key: key)
+
+        // Open database and get statistics
+        let database = WWDCDatabase(databasePath: databasePath)
+        defer { database.close() }
+
+        return try database.getStatistics()
+    }
+
+    private static func getDatabaseEncryptionKey() -> SymmetricKey? {
+        // Try environment variable first
+        if let keyString = ProcessInfo.processInfo.environment["WWDC_BUNDLE_KEY"] {
+            if let keyData = Data(base64Encoded: keyString), keyData.count == 32 {
+                return SymmetricKey(data: keyData)
+            }
+        }
+
+        // Try build-time flag
+        #if WWDC_BUNDLE_KEY
+            let keyString = "\(WWDC_BUNDLE_KEY)"
+            if let keyData = Data(base64Encoded: keyString), keyData.count == 32 {
+                return SymmetricKey(data: keyData)
+            }
+        #endif
+
+        return nil
+    }
+
+    private static func getEmbeddedBundlePath() -> String {
+        // Look for bundle in standard locations
+        let possiblePaths = [
+            "Resources/DATA/wwdc_bundle.encrypted",
+            "wwdc_bundle.encrypted",
+            "/usr/local/share/sosumi/wwdc_bundle.encrypted"
+        ]
+
+        for path in possiblePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+
+        // Default fallback
+        return "wwdc_bundle.encrypted"
+    }
+
+    private static func performLegacySearch(query: String, mode: MarkdownFormatter.OutputMode, format: MarkdownFormatter.OutputFormat) throws -> String {
+        let results = try search(query: query, in: "mock_data", forceRealData: false)
+
+        // Convert legacy results to new format
+        let databaseResults = results.map { legacyResult in
+            // Create a mock session for conversion
+            let session = WWDCDatabase.Session(
+                id: legacyResult.sessionHash,
+                title: legacyResult.title,
+                year: legacyResult.year,
+                sessionNumber: "Unknown",
+                transcript: legacyResult.excerpt
+            )
+
+            return WWDCDatabase.SearchResult(
+                session: session,
+                relevanceScore: legacyResult.relevanceScore
+            )
+        }
+
+        return MarkdownFormatter.formatSearchResults(databaseResults, query: query, mode: mode, format: format)
+    }
+
+    private static func formatDatabaseStatistics(_ stats: [String: Any]) -> String {
+        var output = "# WWDC Database Statistics\n\n"
+        output += "*Generated on \(Date())*\n\n"
+
+        if let totalSessions = stats["total_sessions"] {
+            output += "## Overview\n\n"
+            output += "- **Total Sessions:** \(totalSessions)\n"
+        }
+
+        if let sessionsWithTranscripts = stats["sessions_with_transcripts"] {
+            output += "- **Sessions with Transcripts:** \(sessionsWithTranscripts)\n"
+        }
+
+        if let totalWordCount = stats["total_word_count"] {
+            output += "- **Total Word Count:** \(totalWordCount)\n"
+        }
+
+        if let averageDuration = stats["average_duration"] {
+            output += "- **Average Duration:** \(averageDuration) minutes\n"
+        }
+
+        if let yearRange = stats["year_range"] as? [String: Any],
+           let minYear = yearRange["min"], let maxYear = yearRange["max"] {
+            output += "- **Year Range:** \(minYear) - \(maxYear)\n"
+        }
+
+        if let uniquePlatforms = stats["unique_platforms"] {
+            output += "- **Unique Platforms:** \(uniquePlatforms)\n"
+        }
+
+        if let uniqueTopics = stats["unique_topics"] {
+            output += "- **Unique Topics:** \(uniqueTopics)\n"
+        }
+
+        output += "\n---\n\n"
+        output += "**Source:** WWDC Sessions Archive Database\n"
+
+        return output
     }
 
     private static func searchRealData(query: String, in dataPath: String) throws -> [SearchResult] {
