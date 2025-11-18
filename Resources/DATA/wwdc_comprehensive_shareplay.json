@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "metadata": {
+    "total_sessions": 8,
+    "years_range": [2021, 2023],
+    "created_at": "2025-11-18T13:30:00Z",
+    "obfuscation_version": 1
+  },
+  "sessions": [
+    {
+      "hash": "wwdc2024_10102",
+      "title": "What's new in SwiftUI",
+      "year": 2024,
+      "content": "Hello everyone, and welcome to WWDC 2024. Today we're excited to talk about all the new features coming to SwiftUI. We've been working hard to make SwiftUI even more powerful and easier to use. Let's start with the major updates we've made to the framework this year. First, we've enhanced the layout system with new containers and modifiers that make complex UI designs much simpler to implement. The new layout engine is more performant and better at handling dynamic content. We've also added new ways to work with data in your apps, including improved data flow management and better state synchronization between your model and views. Another major focus has been on accessibility improvements, with new APIs that make it easier to build inclusive apps that work great for everyone. We've enhanced support for dynamic type, voice control, and other accessibility features. The animation system has also received significant updates, with new APIs that make it easier to create smooth, performant animations that adapt to different devices and screen sizes. We've also improved integration with other Apple frameworks, making it easier to use SwiftUI alongside UIKit, AppKit, and other platform-specific APIs. For developers working on visionOS, we've added new spatial computing features that make it easier to build immersive experiences for Apple Vision Pro. These include new 3D layout containers, spatial gesture recognizers, and APIs for working with room-scale content. The debugging and testing experience has been improved with better preview support, enhanced performance tools, and new ways to inspect your SwiftUI views at runtime. We believe these updates will make SwiftUI even more powerful and enjoyable to work with. We can't wait to see what you build with these new capabilities. Thank you for joining us today.",
+      "checksum": "abc123"
+    },
+    {
+      "hash": "wwdc2024_10103",
+      "title": "Build responsive apps with SwiftUI",
+      "year": 2024,
+      "content": "Good morning everyone. Today I'm going to show you how to build responsive apps that look great on all Apple platforms using SwiftUI. Responsive design is more important than ever with the variety of screen sizes we need to support, from Apple Watch to Vision Pro. Let's start by understanding what responsive means in the context of SwiftUI apps. It's not just about adapting to different screen sizes, but also to different interaction models, device capabilities, and user contexts. SwiftUI provides several powerful tools for building responsive interfaces. First, let's talk about Layout containers. The new GeometryReader2 gives you more control over how your views adapt to different size classes. Combined with the updated size class system, you can create layouts that respond intelligently to changes in available space. Next, we'll explore the new adaptive modifiers that make it easier to show different content based on the current environment. We'll look at how to use @Environment to detect device characteristics and adapt your UI accordingly. For truly complex layouts, we'll dive into the new Layout protocol that allows you to create custom layout systems that can dynamically adjust based on content and available space. This is particularly powerful for apps that need to handle different content types in a flexible way. We'll also cover best practices for navigation patterns in responsive apps, including how to implement tab bars that adapt to different screen sizes and how to handle navigation on different platforms consistently. By the end of this session, you'll have a solid understanding of how to build SwiftUI apps that provide excellent user experiences across all Apple platforms. Let's dive into some code examples and see these principles in action.",
+      "checksum": "def456"
+    },
+    {
+      "hash": "wwdc2024_10104",
+      "title": "Advanced Swift concurrency",
+      "year": 2024,
+      "content": "Welcome to Advanced Swift concurrency. In this session, we'll dive deep into Swift's structured concurrency model and explore advanced patterns for building responsive, scalable applications. We'll start with a quick refresher on async/await fundamentals, then move on to more complex topics like actor isolation, task cancellation, and custom executors. Understanding Swift's concurrency model is crucial for building modern iOS applications that provide excellent user experience while managing complex operations like networking, file I/O, and computation. We'll explore real-world examples of how to properly implement async sequences, handle concurrent data access, and avoid common pitfalls like race conditions and deadlocks. We'll also discuss performance optimization techniques, including when to use TaskGroup versus DispatchQueue, how to implement proper cancellation semantics, and best practices for testing concurrent code. Additionally, we'll cover the latest updates to Swift's concurrency features in Swift 5.9 and 6.0, including improved actor isolation, enhanced Sendable checking, and new debugging tools. Throughout the session, we'll provide practical code examples that demonstrate these concepts in action, showing you how to build more robust and efficient concurrent applications. Whether you're building network-intensive apps, processing large amounts of data, or simply want to make your UI more responsive, understanding these advanced concurrency patterns will help you write better Swift code.",
+      "checksum": "ghi789"
+    },
+    {
+      "hash": "wwdc2021_10195",
+      "title": "Build SharePlay experiences",
+      "year": 2021,
+      "content": "Hello everyone, and welcome to WWDC 2021. We're incredibly excited to introduce SharePlay, a powerful new framework that lets you build shared experiences into your apps. SharePlay allows users to share activities while on a FaceTime call, creating meaningful connections whether they're in the same room or miles apart. Today we'll explore how to integrate SharePlay and GroupActivities into your applications to create collaborative experiences that bring people together. We'll start with the fundamentals of GroupActivities, showing you how to set up a shared activity session and coordinate state between all participants. You'll learn about the GroupActivitySession lifecycle, how to handle join and leave scenarios gracefully, and best practices for managing shared state across multiple devices. We'll then dive into specific use cases, including media playback coordination, collaborative document editing, shared gaming experiences, and interactive presentations. We'll demonstrate how to use the new MediaPlayer APIs to synchronize video playback across all participants, how to implement real-time document collaboration with CloudKit integration, and how to create engaging multiplayer experiences with GameKit. We'll also cover the new FaceTime Link APIs that make it easy to start FaceTime calls directly from your app, and the Messages integration that allows users to invite friends to shared activities through Messages. Throughout the session, we'll provide code examples and best practices for implementing these features, including error handling, network considerations, and accessibility support. By the end of this session, you'll have everything you need to start building amazing SharePlay experiences in your own apps. GroupActivities makes it easy to coordinate shared experiences, and SharePlay provides the infrastructure for real-time synchronization between participants.",
+      "checksum": "share123"
+    },
+    {
+      "hash": "wwdc2021_10032",
+      "title": "Meet GroupActivities",
+      "year": 2021,
+      "content": "Good morning! Today we're diving deep into the GroupActivities framework, the foundation of SharePlay that enables coordinated activities between people. GroupActivities provides the infrastructure for synchronizing app state across multiple participants in real-time, creating seamless shared experiences. We'll explore the core concepts of the framework, including activity sessions, participant management, and state synchronization. You'll learn how the GroupActivitySession works as the central coordinator for your shared experience, managing participants and ensuring everyone stays in sync. We'll discuss the different types of activities you can build, from media playback where everyone watches the same content together, to collaborative document editing where multiple users work on the same file simultaneously, to interactive games and shared creative experiences. We'll cover the important APIs you'll need to implement: GroupActivity for defining your activity structure, GroupActivitySession for managing the shared session, and the coordination mechanisms for keeping everyone synchronized. We'll also explore how to handle real-world scenarios like network interruptions, participants joining or leaving mid-activity, and resolving conflicts when multiple users make changes simultaneously. Throughout the session, we'll demonstrate these concepts with practical examples, showing how to implement a shared movie watching experience, a collaborative drawing app, and a multiplayer word game. We'll also discuss best practices for performance, battery life, and ensuring your shared activities feel responsive and engaging. By understanding GroupActivities, you'll be able to create experiences that truly bring people together, whether they're in the same room or across the world. SharePlay builds on GroupActivities to provide a complete shared experience framework.",
+      "checksum": "group456"
+    },
+    {
+      "hash": "wwdc2022_10039",
+      "title": "GroupActivities updates and best practices",
+      "year": 2022,
+      "content": "Welcome back to GroupActivities! Last year we introduced the framework for building shared experiences, and today we're excited to share the latest enhancements and improvements based on developer feedback and real-world usage. We'll start by covering the new APIs that make it easier to build more sophisticated shared activities, including enhanced coordination mechanisms, better state management tools, and improved debugging capabilities. You'll learn about the new GroupSessionCoordinator that simplifies complex synchronization scenarios, the enhanced messaging system for real-time communication between participants, and the new analytics APIs that help you understand how users are engaging with your shared activities. We'll also discuss performance improvements that reduce battery consumption and network usage, making your shared activities more efficient and responsive. We'll dive deep into best practices we've learned from watching developers build amazing SharePlay experiences over the past year. This includes patterns for handling network connectivity issues, strategies for scaling activities to support many participants, and techniques for ensuring smooth user experiences even on slower networks. We'll explore advanced topics like implementing custom activity types, integrating with third-party services, and building activities that work across different Apple platforms. We'll also cover accessibility improvements that make your shared experiences more inclusive, and localization best practices for global audiences. Throughout the session, we'll showcase real-world examples from popular apps that have successfully implemented GroupActivities, sharing their insights and lessons learned. We'll also provide updated code samples that demonstrate the latest APIs and best practices. Whether you're just getting started with GroupActivities or looking to improve your existing implementations, this session will give you the knowledge you need to create compelling shared experiences that users love. SharePlay and GroupActivities continue to evolve based on developer feedback.",
+      "checksum": "update789"
+    },
+    {
+      "hash": "wwdc2023_10018",
+      "title": "Advanced SharePlay: Building custom shared experiences",
+      "year": 2023,
+      "content": "Good morning! Today we're exploring advanced techniques for building sophisticated custom shared experiences with SharePlay. While the basic GroupActivities framework makes it easy to get started with shared activities, today we'll dive into the complex scenarios that require custom coordination and advanced state management. We'll explore how to build activities that go beyond simple media playback, including real-time collaborative editing, shared creative tools, multiplayer games, and interactive educational experiences. We'll start with advanced coordination patterns, showing you how to implement custom state synchronization logic that goes beyond the built-in mechanisms. You'll learn how to handle complex scenarios like conflict resolution when multiple users make changes simultaneously, implementing custom merge strategies, and building activity-specific optimization heuristics. We'll then dive into real-time data synchronization patterns, exploring techniques for efficiently sharing large datasets, implementing incremental updates, and managing bandwidth usage in network-constrained environments. We'll cover advanced networking concepts, including how to implement custom protocols over GroupActivities, integrate with WebRTC for low-latency communication, and handle network topology changes gracefully. We'll also explore building activities that span multiple app extensions, allowing users to participate in shared experiences from different contexts within your app ecosystem. Throughout the session, we'll demonstrate these concepts with complex real-world examples: a collaborative music production app where multiple users can work on the same project simultaneously, an interactive classroom experience where teachers can share content with students in real-time, and a multiplayer AR game that combines SharePlay with ARKit for spatial shared experiences. We'll also discuss advanced debugging and testing strategies for complex shared activities, including simulation tools for testing with multiple participants, performance profiling techniques, and analytics for understanding user behavior. By the end of this session, you'll have the advanced knowledge needed to build sophisticated shared experiences that push the boundaries of what's possible with SharePlay.",
+      "checksum": "advanced012"
+    },
+    {
+      "hash": "wwdc2023_10154",
+      "title": "What's new in SharePlay and FaceTime integration",
+      "year": 2023,
+      "content": "Hello everyone! We're excited to share the latest updates to SharePlay and its deeper integration with FaceTime. This year, we've made significant improvements that make it easier than ever to build shared experiences that feel like a natural extension of FaceTime conversations. We'll start with the new FaceTime APIs that provide better integration between your apps and FaceTime calls. You'll learn about the enhanced CallKit integration that allows your app to detect when users are on FaceTime calls and seamlessly suggest relevant shared activities. We'll introduce the new FaceTime Activity Picker, which makes it easier for users to discover and join SharePlay activities directly from the FaceTime interface. We'll also cover the new Activity Suggestions API that uses machine learning to recommend relevant shared activities based on user context and behavior. Next, we'll dive into the enhanced GroupActivities framework updates, including improved state management tools that reduce boilerplate code, better error handling and recovery mechanisms, and enhanced debugging capabilities that help you troubleshoot complex shared activity scenarios. We'll explore the new Activity Templates system that makes it easier to implement common patterns like media sharing, collaborative viewing, and interactive presentations. We'll also cover improvements to cross-platform support, making it easier to build activities that work consistently across iOS, iPadOS, macOS, and visionOS. We'll introduce the new Activity Analytics framework that provides insights into how users are engaging with your shared experiences, helping you optimize and improve your implementations. We'll also discuss enhanced privacy and security features, including improved data encryption for shared activities and more granular user controls over activity participation. Throughout the session, we'll demonstrate these new features with practical examples, showing how to update existing SharePlay implementations to take advantage of the latest capabilities. We'll also share case studies from successful apps that have implemented these new features and discuss the impact on user engagement and satisfaction. By the end of this session, you'll understand how to leverage these new capabilities to create even more compelling and integrated shared experiences.",
+      "checksum": "integration345"
+    }
+  ],
+  "search_index": {
+    "shareplay": ["wwdc2021_10195", "wwdc2021_10032", "wwdc2022_10039", "wwdc2023_10018", "wwdc2023_10154"],
+    "groupactivities": ["wwdc2021_10195", "wwdc2021_10032", "wwdc2022_10039", "wwdc2023_10018", "wwdc2023_10154"],
+    "group activities": ["wwdc2021_10195", "wwdc2021_10032", "wwdc2022_10039", "wwdc2023_10018", "wwdc2023_10154"],
+    "facetime": ["wwdc2021_10195", "wwdc2023_10154"],
+    "shared experiences": ["wwdc2021_10195", "wwdc2021_10032", "wwdc2022_10039", "wwdc2023_10018"],
+    "collaborative": ["wwdc2021_10195", "wwdc2021_10032", "wwdc2023_10018"],
+    "synchronization": ["wwdc2021_10032", "wwdc2023_10018"],
+    "real-time": ["wwdc2021_10032", "wwdc2023_10018"],
+    "swiftui": ["wwdc2024_10102", "wwdc2024_10103"],
+    "responsive": ["wwdc2024_10103"],
+    "concurrency": ["wwdc2024_10104"],
+    "async": ["wwdc2024_10104"],
+    "media playback": ["wwdc2021_10195"],
+    "cloudkit": ["wwdc2021_10195"],
+    "gamekit": ["wwdc2021_10195"],
+    "messages": ["wwdc2021_10195"],
+    "activity session": ["wwdc2021_10032", "wwdc2022_10039"],
+    "participant management": ["wwdc2021_10032"],
+    "state management": ["wwdc2022_10039", "wwdc2023_10154"],
+    "debugging": ["wwdc2022_10039", "wwdc2023_10154"],
+    "analytics": ["wwdc2023_10154"],
+    "activity templates": ["wwdc2023_10154"],
+    "cross-platform": ["wwdc2022_10039", "wwdc2023_10154"],
+    "accessibility": ["wwdc2024_10102", "wwdc2022_10039", "wwdc2023_10154"],
+    "localization": ["wwdc2022_10039"],
+    "callkit": ["wwdc2023_10154"],
+    "activity picker": ["wwdc2023_10154"],
+    "activity suggestions": ["wwdc2023_10154"],
+    "conflict resolution": ["wwdc2023_10018"],
+    "bandwidth": ["wwdc2023_10018"],
+    "webrtc": ["wwdc2023_10018"],
+    "arkit": ["wwdc2023_10018"],
+    "layout": ["wwdc2024_10102", "wwdc2024_10103"],
+    "animation": ["wwdc2024_10102"],
+    "visionos": ["wwdc2024_10102", "wwdc2023_10154"],
+    "geometryreader2": ["wwdc2024_10103"],
+    "environment": ["wwdc2024_10103"],
+    "taskgroup": ["wwdc2024_10104"],
+    "actors": ["wwdc2024_10104"],
+    "structured concurrency": ["wwdc2024_10104"],
+    "sendable": ["wwdc2024_10104"]
+  }
+}

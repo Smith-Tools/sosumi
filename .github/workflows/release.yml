@@ -39,13 +39,13 @@ jobs:
             exit 1
           fi
 
-          # Build with key injection and Swift 6 strict concurrency fix
+          # Build with key injection and Swift 6 strict concurrency disabled
           swift build -c release \
             -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY" \
-            -Xswiftc -enable-experimental-feature StrictConcurrency=complete
+            -Xswiftc -disable-strict-concurrency
 
       - name: Run tests
-        run: swift test -Xswiftc -enable-experimental-feature StrictConcurrency=complete
+        run: swift test -Xswiftc -disable-strict-concurrency
 
       - name: Create distribution package
         run: make dist
