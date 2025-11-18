@@ -89,8 +89,8 @@ dist: build
 		echo 'fi'; \
 		echo 'echo "🎉 Installation complete!"'; \
 		echo 'echo "Usage: sosumi search \"query\""'; \
-		echo 'echo "       /skill sosumi search \"query\""'; \
-	;} > dist/install.sh
+		echo 'echo "       /skill sosumi search \"query\""';
+	} > dist/install.sh
 	chmod +x dist/install.sh
 
 	# Create package
