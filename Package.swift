@@ -37,5 +37,13 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
+        .testTarget(
+            name: "SosumiCoreTests",
+            dependencies: ["SosumiCore"]
+        ),
+        .testTarget(
+            name: "SosumiCLITests",
+            dependencies: ["SosumiCLI"]
+        ),
     ]
 )
