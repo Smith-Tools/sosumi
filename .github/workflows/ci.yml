@@ -32,7 +32,7 @@ jobs:
       run: swift build -c release
 
     - name: Run tests
-      run: swift test --enable-code-coverage
+      run: swift test
 
     - name: Build documentation
       run: |

@@ -44,7 +44,7 @@ jobs:
             -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY"
 
       - name: Run tests
-        run: swift test --enable-code-coverage
+        run: swift test
 
       - name: Create distribution package
         run: make dist
