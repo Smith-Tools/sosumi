@@ -21,6 +21,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-testing.git", from: "0.6.0"),
     ],
     targets: [
         .executableTarget(
@@ -39,11 +40,17 @@ let package = Package(
         ),
         .testTarget(
             name: "SosumiCoreTests",
-            dependencies: ["SosumiCore"]
+            dependencies: [
+                "SosumiCore",
+                .product(name: "Testing", package: "swift-testing"),
+            ]
         ),
         .testTarget(
             name: "SosumiCLITests",
-            dependencies: ["SosumiCLI"]
+            dependencies: [
+                "SosumiCLI",
+                .product(name: "Testing", package: "swift-testing"),
+            ]
         ),
     ]
 )

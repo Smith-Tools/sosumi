@@ -1,17 +1,20 @@
-import XCTest
+import Testing
 @testable import SosumiCLI
 
-final class SosumiCLITests: XCTestCase {
-    
+@Suite("SosumiCLI Tests")
+struct SosumiCLITests {
+
+    @Test("CLI module loads")
     func testCLIModuleLoads() {
         // Verify CLI module can be imported and loaded
-        XCTAssertNotNil(SosumiCLI.self)
+        #expect(SosumiCLI.self != nil)
     }
-    
+
+    @Test("CLI basic functionality")
     func testCLIBasicFunctionality() {
         // Verify CLI can initialize
         // Note: Full CLI tests require running the executable
         // which is tested via integration tests in CI
-        XCTAssert(true)
+        #expect(true)
     }
 }

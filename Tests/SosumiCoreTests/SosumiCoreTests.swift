@@ -1,16 +1,19 @@
-import XCTest
+import Testing
 @testable import SosumiCore
 
-final class SosumiCoreTests: XCTestCase {
-    
+@Suite("SosumiCore Tests")
+struct SosumiCoreTests {
+
+    @Test("Search engine initialization")
     func testSearchEngineInitialization() {
         // Verify the search engine can be instantiated
         let core = SosumiCore()
-        XCTAssertNotNil(core)
+        #expect(core != nil)
     }
-    
+
+    @Test("WWDC search available")
     func testWWDCSearchAvailable() {
         // Verify WWDC search is available
-        XCTAssertNotNil(SosumiCore.self)
+        #expect(SosumiCore.self != nil)
     }
 }
