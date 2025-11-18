@@ -11,7 +11,7 @@ repos:
         entry: detect-secrets scan --baseline .secrets.baseline
         language: python
         types: [text]
-        exclude: ^(Package.resolved|README.md|SKILL.md|\.github)
+        exclude: ^(Package.resolved|README.md|Sources/Skill/SKILL.md|\.github)
         stages: [commit]
 
   # Check for large files that might contain sensitive data

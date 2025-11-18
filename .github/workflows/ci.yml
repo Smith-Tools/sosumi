@@ -60,18 +60,18 @@ jobs:
 
     - name: Validate SKILL.md
       run: |
-        if [ ! -f "SKILL.md" ]; then
+        if [ ! -f "Sources/Skill/SKILL.md" ]; then
           echo "SKILL.md not found"
           exit 1
         fi
 
         # Check required frontmatter
-        if ! grep -q "^name:" SKILL.md; then
+        if ! grep -q "^name:" Sources/Skill/SKILL.md; then
           echo "SKILL.md missing name field"
           exit 1
         fi
 
-        if ! grep -q "^description:" SKILL.md; then
+        if ! grep -q "^description:" Sources/Skill/SKILL.md; then
           echo "SKILL.md missing description field"
           exit 1
         fi

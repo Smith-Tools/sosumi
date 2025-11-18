@@ -31,8 +31,11 @@ make install
 sosumi/
 ├── Sources/
 │   ├── SosumiCLI/         ← Command-line interface
-│   └── SosumiCore/        ← Core functionality
-├── SKILL.md               ← Claude Code skill manifest
+│   ├── SosumiCore/        ← Core functionality
+│   └── Skill/             ← Claude Code skill components
+│       └── SKILL.md       ← Skill manifest
+├── Scripts/               ← Build and utility scripts
+├── docs/                  ← Documentation
 ├── Package.swift          ← Swift package configuration
 ├── Makefile               ← Build and installation targets
 └── Tests/                 ← Test suites

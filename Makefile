@@ -30,7 +30,7 @@ install: build
 
 	# Install Claude skill
 	mkdir -p $(HOME)/.claude/skills
-	cp SKILL.md $(HOME)/.claude/skills/sosumi.md
+	cp Sources/Skill/SKILL.md $(HOME)/.claude/skills/sosumi.md
 
 	# Install resources
 	if [ -d "Resources" ]; then \
@@ -66,7 +66,7 @@ dist: build
 	cp .build/release/sosumi dist/
 
 	# Copy skill manifest
-	cp SKILL.md dist/
+	cp Sources/Skill/SKILL.md dist/
 
 	# Copy resources
 	if [ -d "Resources" ]; then \
@@ -82,7 +82,7 @@ dist: build
 		'mkdir -p $$HOME/.local/bin' \
 		'cp "$$SCRIPT_DIR/sosumi" $$HOME/.local/bin/' \
 		'mkdir -p $$HOME/.claude/skills' \
-		'cp "$$SCRIPT_DIR/SKILL.md" $$HOME/.claude/skills/sosumi.md' \
+		'cp "$$SCRIPT_DIR/Sources/Skill/SKILL.md" $$HOME/.claude/skills/sosumi.md' \
 		'if [ -d "$$SCRIPT_DIR/Resources" ]; then' \
 		'    mkdir -p $$HOME/.local/share/sosumi' \
 		'    cp -r "$$SCRIPT_DIR/Resources"/* $$HOME/.local/share/sosumi/' \

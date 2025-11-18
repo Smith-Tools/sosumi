@@ -21,7 +21,7 @@ class Sosumi < Formula
 
     # Install Claude skill manifest only
     mkdir_p "#{HOMEBREW_PREFIX}/share/claude/skills"
-    cp "SKILL.md", "#{HOMEBREW_PREFIX}/share/claude/skills/sosumi.md"
+    cp "Sources/Skill/SKILL.md", "#{HOMEBREW_PREFIX}/share/claude/skills/sosumi.md"
 
     # Install resources (obfuscated data only)
     if File.exist?("Resources")

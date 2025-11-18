@@ -253,17 +253,28 @@ swift build -c release
 
 ```
 sosumi/
-├── SKILL.md              ← Skill manifest and usage guide
-├── KEY_MANAGEMENT.md     ← Encryption and build key documentation
 ├── Package.swift         ← Swift package definition
 ├── Sources/
 │   ├── SosumiCore/
 │   │   ├── WWDCDatabase.swift      ← SQLite database & decryption
 │   │   ├── MarkdownFormatter.swift ← User/agent output formatting
 │   │   ├── WWDCSearch.swift        ← Search engine & legacy support
-│   │   └── SosumiCore.swift        ← Core functionality
-│   └── SosumiCLI/
-│       └── main.swift              ← CLI with --mode and --format flags
+│   │   ├── SosumiCore.swift        ← Core functionality
+│   │   └── BundleManager.swift     ← Bundle management
+│   ├── SosumiCLI/
+│   │   └── main.swift              ← CLI with --mode and --format flags
+│   └── Skill/
+│       └── SKILL.md                ← Claude Code skill manifest
+├── Scripts/              ← Build and utility scripts
+│   ├── check-security.swift      ← Security validation
+│   ├── compress-data.swift       ← Data compression
+│   ├── examine-data.swift        ← Data examination
+│   ├── secure-obfuscate.swift    ← Data obfuscation
+│   └── hybrid-obfuscate.swift    ← Hybrid obfuscation
+├── docs/                 ← Documentation
+│   ├── KEY_MANAGEMENT.md        ← Encryption and build key documentation
+│   ├── INSTALLATION.md           ← Installation guide
+│   └── TESTING_*.md              ← Testing documentation
 ├── Tests/               ← Test suites
 └── Resources/
     └── DATA/

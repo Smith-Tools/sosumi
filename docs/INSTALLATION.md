@@ -79,7 +79,7 @@ Claude Code has built-in skill support. You can use sosumi as a skill without in
 ```bash
 # Option A: Symlink from your current directory
 mkdir -p ~/.claude/skills
-ln -s $(pwd)/sosumi ~/.claude/skills/sosumi
+ln -s $(pwd) ~/.claude/skills/sosumi
 
 # Option B: Copy the binary to the skill directory
 mkdir -p ~/.claude/skills/sosumi
