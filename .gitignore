@@ -30,3 +30,28 @@ debug.*
 # Temporary
 tmp/
 temp/
+
+# 🔒 SECURITY: Encryption Keys and Secrets
+# These should NEVER be committed to git
+Config/encryption_keys.json
+Config/*.enc
+Config/*.gpg
+Config/*.key
+Config/*.pem
+Config/secrets/
+Config/.secrets.baseline
+
+# GitHub Secrets (local CI/CD testing)
+.github/secrets/
+.github/*.env
+
+# Sensitive configuration
+.production
+.prod.env
+production.key
+encryption.key
+decryption.key
+
+# IDE Local Settings with secrets
+.env.local
+.env.*.local

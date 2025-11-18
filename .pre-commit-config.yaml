@@ -1,0 +1,71 @@
+# Pre-commit hooks configuration for sosumi-skill
+# Prevents accidental commits of sensitive data like encryption keys
+
+repos:
+  # Detect secrets and sensitive information
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        entry: detect-secrets scan --baseline .secrets.baseline
+        language: python
+        types: [text]
+        exclude: ^(Package.resolved|README.md|SKILL.md|\.github)
+        stages: [commit]
+
+  # Check for large files that might contain sensitive data
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+        stages: [commit]
+
+      - id: check-case-conflict
+        name: Check for case conflicts
+        stages: [commit]
+
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        stages: [commit]
+
+      - id: detect-private-key
+        name: Detect private keys
+        stages: [commit]
+
+  # Swift-specific checks
+  - repo: https://github.com/realm/SwiftLint
+    rev: 0.55.1
+    hooks:
+      - id: swiftlint
+        name: SwiftLint
+        language: system
+        types: [swift]
+        entry: swiftlint
+        stages: [commit]
+
+# Custom local hook to verify encryption keys are not hardcoded
+  - repo: local
+    hooks:
+      - id: no-hardcoded-keys
+        name: Check for hardcoded encryption keys
+        entry: bash -c 'grep -r "REPLACE_WITH_ACTUAL_DEVELOPMENT_KEY_32_BYTES\|REPLACE_ME_WITH_PRODUCTION_KEY_32BYTES\|DEMO_KEY_REPLACE_IN_PRODUCTION" Sources/ || exit 0'
+        language: system
+        types: [swift]
+        pass_filenames: false
+        fail_fast: false
+
+      - id: check-encryption-key-config
+        name: Verify encryption key configuration
+        entry: bash -c '[ -f "Config/encryption_keys.json" ] && echo "ERROR: encryption_keys.json found in working directory. This should never be committed." && exit 1 || exit 0'
+        language: system
+        types: [text]
+        pass_filenames: false
+        fail_fast: true
+
+# Configuration
+default_stages: [commit]
+fail_fast: false
+exclude: ^(\.build/|Package.resolved|\.git)
