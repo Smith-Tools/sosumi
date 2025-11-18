@@ -9,28 +9,20 @@ public struct BundleManager {
     public static func findBundle() -> String? {
         let fileManager = FileManager.default
 
-        // First check for plain database (v1.3.0+)
-        let plainDbPaths: [String] = [
-            // 1. App bundle resources
-            Bundle.main.resourcePath?.appending("/DATA/wwdc.db") ?? "",
-            // 2. Current directory
-            fileManager.currentDirectoryPath + "/wwdc.db",
-            // 3. Home directory ~/.sosumi/
-            fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".sosumi/wwdc.db").path
-        ].filter { !$0.isEmpty }
-
-        for path in plainDbPaths {
-            if fileManager.fileExists(atPath: path) {
-                return path
-            }
+        // First check for plain database in user home (v1.3.0+)
+        // Plain database should only exist in ~/.sosumi/ for local development
+        let userDbPath = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(".sosumi/wwdc.db").path
+        if fileManager.fileExists(atPath: userDbPath) {
+            return userDbPath
         }
 
-        // Fall back to encrypted bundle (v1.2.0 and earlier)
+        // Fall back to encrypted bundle (v1.2.0+ releases)
         let encryptedBundlePaths: [String] = [
-            // 1. Current directory
-            fileManager.currentDirectoryPath + "/wwdc_bundle.encrypted",
-            // 2. Home directory ~/.sosumi/
+            // 1. Home directory ~/.sosumi/
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".sosumi/wwdc_bundle.encrypted").path,
+            // 2. Current directory
+            fileManager.currentDirectoryPath + "/wwdc_bundle.encrypted",
             // 3. App bundle resources (if compiled in)
             Bundle.main.resourcePath?.appending("/DATA/wwdc_bundle.encrypted") ?? ""
         ].filter { !$0.isEmpty }
