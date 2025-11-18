@@ -29,15 +29,13 @@ let package = Package(
                 "SosumiCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
-            ],
-            path: "Sources/SosumiCLI"
+            ]
         ),
         .target(
             name: "SosumiCore",
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
-            ],
-            path: "Sources/SosumiCore"
+            ]
         ),
     ]
 )
