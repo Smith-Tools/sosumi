@@ -25,14 +25,10 @@ public class WWDCDatabase {
         public let title: String
         public let year: Int
         public let sessionNumber: String
-        public let focus: String?
-        public let platforms: [String]?
+        public let type: String?
         public let duration: Int?
         public let description: String?
-        public let url: String?
-        public let speakers: [String]?
-        public let topics: [String]?
-        public let transcriptUrl: String?
+        public let webUrl: String?
         public let transcript: String?
         public let wordCount: Int?
 
@@ -41,14 +37,10 @@ public class WWDCDatabase {
             title: String,
             year: Int,
             sessionNumber: String,
-            focus: String? = nil,
-            platforms: [String]? = nil,
+            type: String? = nil,
             duration: Int? = nil,
             description: String? = nil,
-            url: String? = nil,
-            speakers: [String]? = nil,
-            topics: [String]? = nil,
-            transcriptUrl: String? = nil,
+            webUrl: String? = nil,
             transcript: String? = nil,
             wordCount: Int? = nil
         ) {
@@ -56,14 +48,10 @@ public class WWDCDatabase {
             self.title = title
             self.year = year
             self.sessionNumber = sessionNumber
-            self.focus = focus
-            self.platforms = platforms
+            self.type = type
             self.duration = duration
             self.description = description
-            self.url = url
-            self.speakers = speakers
-            self.topics = topics
-            self.transcriptUrl = transcriptUrl
+            self.webUrl = webUrl
             self.transcript = transcript
             self.wordCount = wordCount
         }
@@ -187,15 +175,12 @@ public class WWDCDatabase {
 
         let searchQuery = """
         SELECT
-            s.id, s.title, s.year, s.session_number, s.focus, s.platforms, s.duration,
-            s.description, s.url, s.speakers, s.topics, s.transcript_url,
+            s.id, s.title, s.year, s.session_number, s.type, s.duration,
+            s.description, s.web_url,
             t.content, t.word_count,
             bm25(transcripts_fts) as relevance_score,
             snippet(transcripts_fts, 1, '<mark>', '</mark>', '...', 32) as snippet_title,
-            snippet(transcripts_fts, 2, '<mark>', '</mark>', '...', 64) as snippet_content,
-            snippet(transcripts_fts, 3, '<mark>', '</mark>', '...', 32) as snippet_speakers,
-            snippet(transcripts_fts, 4, '<mark>', '</mark>', '...', 32) as snippet_topics,
-            snippet(transcripts_fts, 5, '<mark>', '</mark>', '...', 32) as snippet_platforms
+            snippet(transcripts_fts, 2, '<mark>', '</mark>', '...', 64) as snippet_content
         FROM transcripts_fts
         JOIN sessions s ON transcripts_fts.session_id = s.id
         LEFT JOIN transcripts t ON s.id = t.session_id
@@ -218,25 +203,16 @@ public class WWDCDatabase {
 
         while sqlite3_step(stmt) == SQLITE_ROW {
             let session = extractSessionFrom(stmt: stmt)
-            let relevanceScore = sqlite3_column_double(stmt, 14)
+            let relevanceScore = sqlite3_column_double(stmt, 10)
 
             var matchingText: [String] = []
 
             // Extract snippets
-            if let titleSnippet = extractString(from: stmt, at: 15) {
+            if let titleSnippet = extractString(from: stmt, at: 11) {
                 matchingText.append("Title: \(titleSnippet)")
             }
-            if let contentSnippet = extractString(from: stmt, at: 16) {
+            if let contentSnippet = extractString(from: stmt, at: 12) {
                 matchingText.append("Content: \(contentSnippet)")
-            }
-            if let speakersSnippet = extractString(from: stmt, at: 17) {
-                matchingText.append("Speakers: \(speakersSnippet)")
-            }
-            if let topicsSnippet = extractString(from: stmt, at: 18) {
-                matchingText.append("Topics: \(topicsSnippet)")
-            }
-            if let platformsSnippet = extractString(from: stmt, at: 19) {
-                matchingText.append("Platforms: \(platformsSnippet)")
             }
 
             results.append(SearchResult(session: session, relevanceScore: relevanceScore, matchingText: matchingText))
@@ -253,8 +229,8 @@ public class WWDCDatabase {
 
         let query = """
         SELECT
-            s.id, s.title, s.year, s.session_number, s.focus, s.platforms, s.duration,
-            s.description, s.url, s.speakers, s.topics, s.transcript_url,
+            s.id, s.title, s.year, s.session_number, s.type, s.duration,
+            s.description, s.web_url,
             t.content, t.word_count
         FROM sessions s
         LEFT JOIN transcripts t ON s.id = t.session_id
@@ -286,8 +262,8 @@ public class WWDCDatabase {
 
         let query = """
         SELECT
-            s.id, s.title, s.year, s.session_number, s.focus, s.platforms, s.duration,
-            s.description, s.url, s.speakers, s.topics, s.transcript_url,
+            s.id, s.title, s.year, s.session_number, s.type, s.duration,
+            s.description, s.web_url,
             t.content, t.word_count
         FROM sessions s
         LEFT JOIN transcripts t ON s.id = t.session_id
@@ -329,8 +305,7 @@ public class WWDCDatabase {
             ("total_word_count", "SELECT SUM(word_count) FROM transcripts;"),
             ("average_duration", "SELECT AVG(duration) FROM sessions WHERE duration IS NOT NULL;"),
             ("year_range", "SELECT MIN(year), MAX(year) FROM sessions;"),
-            ("unique_platforms", "SELECT COUNT(DISTINCT platforms) FROM sessions WHERE platforms IS NOT NULL;"),
-            ("unique_topics", "SELECT COUNT(DISTINCT topics) FROM sessions WHERE topics IS NOT NULL;")
+            ("unique_session_types", "SELECT COUNT(DISTINCT type) FROM sessions WHERE type IS NOT NULL;")
         ]
 
         for (key, query) in queries {
@@ -368,35 +343,22 @@ public class WWDCDatabase {
         let title = extractString(from: stmt, at: 1) ?? ""
         let year = Int(sqlite3_column_int(stmt, 2))
         let sessionNumber = extractString(from: stmt, at: 3) ?? ""
-        let focus = extractString(from: stmt, at: 4)
-        let platformsJson = extractString(from: stmt, at: 5)
-        let duration = sqlite3_column_type(stmt, 6) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 6)) : nil
-        let description = extractString(from: stmt, at: 7)
-        let url = extractString(from: stmt, at: 8)
-        let speakersJson = extractString(from: stmt, at: 9)
-        let topicsJson = extractString(from: stmt, at: 10)
-        let transcriptUrl = extractString(from: stmt, at: 11)
-        let transcript = extractString(from: stmt, at: 12)
-        let wordCount = sqlite3_column_type(stmt, 13) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 13)) : nil
-
-        // Parse JSON arrays
-        let platforms = platformsJson != nil ? parseJSONArray(platformsJson!) : nil
-        let speakers = speakersJson != nil ? parseJSONArray(speakersJson!) : nil
-        let topics = topicsJson != nil ? parseJSONArray(topicsJson!) : nil
+        let type = extractString(from: stmt, at: 4)
+        let duration = sqlite3_column_type(stmt, 5) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 5)) : nil
+        let description = extractString(from: stmt, at: 6)
+        let webUrl = extractString(from: stmt, at: 7)
+        let transcript = extractString(from: stmt, at: 8)
+        let wordCount = sqlite3_column_type(stmt, 9) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 9)) : nil
 
         return Session(
             id: id,
             title: title,
             year: year,
             sessionNumber: sessionNumber,
-            focus: focus,
-            platforms: platforms,
+            type: type,
             duration: duration,
             description: description,
-            url: url,
-            speakers: speakers,
-            topics: topics,
-            transcriptUrl: transcriptUrl,
+            webUrl: webUrl,
             transcript: transcript,
             wordCount: wordCount
         )

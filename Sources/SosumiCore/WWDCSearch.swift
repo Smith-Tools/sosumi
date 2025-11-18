@@ -189,12 +189,18 @@ public struct WWDCSearchEngine {
     // MARK: - Private Database Methods
 
     private static func performDatabaseSearch(query: String, bundlePath: String?, limit: Int) throws -> [WWDCDatabase.SearchResult] {
-        // Get encryption key
+        // Try plain database first (v1.3.0+)
+        if let plainDbPath = getPlainDatabasePath() {
+            let database = WWDCDatabase(databasePath: plainDbPath)
+            defer { database.close() }
+            return try database.search(query: query, limit: limit)
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
         guard let key = getDatabaseEncryptionKey() else {
             throw WWDCDatabaseError.keyNotFound
         }
 
-        // Determine bundle path
         let bundle = bundlePath ?? getEmbeddedBundlePath()
         guard FileManager.default.fileExists(atPath: bundle) else {
             throw SearchError.bundleNotFound
@@ -211,12 +217,18 @@ public struct WWDCSearchEngine {
     }
 
     private static func performDatabaseSessionLookup(sessionId: String, bundlePath: String?) throws -> WWDCDatabase.Session? {
-        // Get encryption key
+        // Try plain database first (v1.3.0+)
+        if let plainDbPath = getPlainDatabasePath() {
+            let database = WWDCDatabase(databasePath: plainDbPath)
+            defer { database.close() }
+            return try database.getSession(byId: sessionId)
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
         guard let key = getDatabaseEncryptionKey() else {
             throw WWDCDatabaseError.keyNotFound
         }
 
-        // Determine bundle path
         let bundle = bundlePath ?? getEmbeddedBundlePath()
         guard FileManager.default.fileExists(atPath: bundle) else {
             throw SearchError.bundleNotFound
@@ -233,12 +245,18 @@ public struct WWDCSearchEngine {
     }
 
     private static func performDatabaseYearLookup(year: Int, bundlePath: String?, limit: Int) throws -> [WWDCDatabase.Session] {
-        // Get encryption key
+        // Try plain database first (v1.3.0+)
+        if let plainDbPath = getPlainDatabasePath() {
+            let database = WWDCDatabase(databasePath: plainDbPath)
+            defer { database.close() }
+            return try database.getSessionsByYear(year, limit: limit)
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
         guard let key = getDatabaseEncryptionKey() else {
             throw WWDCDatabaseError.keyNotFound
         }
 
-        // Determine bundle path
         let bundle = bundlePath ?? getEmbeddedBundlePath()
         guard FileManager.default.fileExists(atPath: bundle) else {
             throw SearchError.bundleNotFound
@@ -255,12 +273,18 @@ public struct WWDCSearchEngine {
     }
 
     private static func performDatabaseStatistics(bundlePath: String?) throws -> [String: Any] {
-        // Get encryption key
+        // Try plain database first (v1.3.0+)
+        if let plainDbPath = getPlainDatabasePath() {
+            let database = WWDCDatabase(databasePath: plainDbPath)
+            defer { database.close() }
+            return try database.getStatistics()
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
         guard let key = getDatabaseEncryptionKey() else {
             throw WWDCDatabaseError.keyNotFound
         }
 
-        // Determine bundle path
         let bundle = bundlePath ?? getEmbeddedBundlePath()
         guard FileManager.default.fileExists(atPath: bundle) else {
             throw SearchError.bundleNotFound
@@ -291,6 +315,24 @@ public struct WWDCSearchEngine {
                 return SymmetricKey(data: keyData)
             }
         #endif
+
+        return nil
+    }
+
+    private static func getPlainDatabasePath() -> String? {
+        // Look for plain wwdc.db in standard locations (v1.3.0+)
+        let possiblePaths = [
+            "Resources/DATA/wwdc.db",
+            "wwdc.db",
+            "/usr/local/share/sosumi/wwdc.db",
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sosumi/wwdc.db").path
+        ]
+
+        for path in possiblePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
 
         return nil
     }

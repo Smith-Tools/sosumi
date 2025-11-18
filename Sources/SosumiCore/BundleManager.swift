@@ -5,11 +5,28 @@ public struct BundleManager {
 
     // MARK: - Bundle Path Detection
 
-    /// Checks for wwdc_bundle.encrypted in standard locations
+    /// Checks for wwdc.db or wwdc_bundle.encrypted in standard locations
     public static func findBundle() -> String? {
         let fileManager = FileManager.default
 
-        let searchPaths: [String] = [
+        // First check for plain database (v1.3.0+)
+        let plainDbPaths: [String] = [
+            // 1. App bundle resources
+            Bundle.main.resourcePath?.appending("/DATA/wwdc.db") ?? "",
+            // 2. Current directory
+            fileManager.currentDirectoryPath + "/wwdc.db",
+            // 3. Home directory ~/.sosumi/
+            fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".sosumi/wwdc.db").path
+        ].filter { !$0.isEmpty }
+
+        for path in plainDbPaths {
+            if fileManager.fileExists(atPath: path) {
+                return path
+            }
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
+        let encryptedBundlePaths: [String] = [
             // 1. Current directory
             fileManager.currentDirectoryPath + "/wwdc_bundle.encrypted",
             // 2. Home directory ~/.sosumi/
@@ -18,7 +35,7 @@ public struct BundleManager {
             Bundle.main.resourcePath?.appending("/DATA/wwdc_bundle.encrypted") ?? ""
         ].filter { !$0.isEmpty }
 
-        for path in searchPaths {
+        for path in encryptedBundlePaths {
             if fileManager.fileExists(atPath: path) {
                 return path
             }

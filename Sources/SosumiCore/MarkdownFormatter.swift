@@ -119,14 +119,6 @@ public class MarkdownFormatter {
         output += "\(index). **\(session.title)** (\(session.year))\n"
 
         // Add metadata
-        if let platforms = session.platforms, !platforms.isEmpty {
-            output += "   Platforms: \(platforms.joined(separator: ", "))\n"
-        }
-
-        if let focus = session.focus {
-            output += "   Focus: \(focus)\n"
-        }
-
         if let duration = session.duration {
             output += "   Duration: \(formatDuration(duration))\n"
         }
@@ -163,7 +155,7 @@ public class MarkdownFormatter {
         }
 
         // Always include the official Apple link
-        if let url = session.url {
+        if let url = session.webUrl {
             output += "   📍 **Full video:** [Watch on Apple Developer](\(url))\n"
         }
 
@@ -186,14 +178,6 @@ public class MarkdownFormatter {
         }
 
         // Add detailed metadata
-        if let topics = session.topics, !topics.isEmpty {
-            output += "   Topics: \(topics.joined(separator: ", "))\n"
-        }
-
-        if let speakers = session.speakers, !speakers.isEmpty {
-            output += "   Speakers: \(speakers.joined(separator: ", "))\n"
-        }
-
         if let wordCount = session.wordCount {
             output += "   Word Count: \(wordCount)\n"
         }
@@ -211,7 +195,7 @@ public class MarkdownFormatter {
         }
 
         // Always include attribution
-        output += "   **Source:** [Apple Developer](\(session.url ?? "https://developer.apple.com/videos/"))\n"
+        output += "   **Source:** [Apple Developer](\(session.webUrl ?? "https://developer.apple.com/videos/"))\n"
 
         return output
     }
@@ -223,24 +207,8 @@ public class MarkdownFormatter {
         output += "**WWDC \(session.year) - Session \(session.sessionNumber)**\n\n"
 
         // Metadata section
-        if let focus = session.focus {
-            output += "**Focus:** \(focus)\n\n"
-        }
-
         if let description = session.description {
             output += "**Description:**\n\(description)\n\n"
-        }
-
-        if let platforms = session.platforms, !platforms.isEmpty {
-            output += "**Platforms:** \(platforms.joined(separator: ", "))\n\n"
-        }
-
-        if let topics = session.topics, !topics.isEmpty {
-            output += "**Topics:** \(topics.joined(separator: ", "))\n\n"
-        }
-
-        if let speakers = session.speakers, !speakers.isEmpty {
-            output += "**Speakers:** \(speakers.joined(separator: ", "))\n\n"
         }
 
         if let duration = session.duration {
@@ -254,13 +222,13 @@ public class MarkdownFormatter {
         // Mode-specific content
         switch mode {
         case .user:
-            output += "**📺 Watch Full Video:** [Apple Developer](\(session.url ?? "#"))\n\n"
+            output += "**📺 Watch Full Video:** [Apple Developer](\(session.webUrl ?? "#"))\n\n"
             if let description = session.description, !description.isEmpty {
                 output += "**Summary:**\n\(description)\n\n"
             }
 
         case .agent:
-            output += "**📺 Official Video:** [Watch on Apple Developer](\(session.url ?? "#"))\n\n"
+            output += "**📺 Official Video:** [Watch on Apple Developer](\(session.webUrl ?? "#"))\n\n"
 
             if let transcript = session.transcript, !transcript.isEmpty {
                 output += "## Transcript\n\n"
@@ -287,7 +255,7 @@ public class MarkdownFormatter {
             } else {
                 output += "## Transcript\n\n"
                 output += "*Transcript not available*\n\n"
-                output += "Please watch the [full video](\(session.url ?? "#")) for the complete session content.\n\n"
+                output += "Please watch the [full video](\(session.webUrl ?? "#")) for the complete session content.\n\n"
             }
         }
 
@@ -321,10 +289,6 @@ public class MarkdownFormatter {
 
             for (index, session) in sortedSessions.enumerated() {
                 output += "\(index + 1). **[\(session.sessionNumber): \(session.title)](#session-\(session.id.lowercased()))**\n"
-
-                if let platforms = session.platforms, !platforms.isEmpty {
-                    output += "   Platforms: \(platforms.joined(separator: ", "))\n"
-                }
 
                 if let duration = session.duration {
                     output += "   Duration: \(formatDuration(duration))\n"
@@ -363,27 +327,11 @@ public class MarkdownFormatter {
                 "year": result.session.year,
                 "sessionNumber": result.session.sessionNumber,
                 "relevanceScore": result.relevanceScore,
-                "url": result.session.url as Any
+                "webUrl": result.session.webUrl as Any
             ]
-
-            if let platforms = result.session.platforms {
-                sessionData["platforms"] = platforms
-            }
-
-            if let focus = result.session.focus {
-                sessionData["focus"] = focus
-            }
 
             if let duration = result.session.duration {
                 sessionData["duration"] = duration
-            }
-
-            if let speakers = result.session.speakers {
-                sessionData["speakers"] = speakers
-            }
-
-            if let topics = result.session.topics {
-                sessionData["topics"] = topics
             }
 
             // Mode-specific content
@@ -414,17 +362,16 @@ public class MarkdownFormatter {
             "title": session.title,
             "year": session.year,
             "sessionNumber": session.sessionNumber,
-            "url": session.url as Any,
             "generatedAt": ISO8601DateFormatter().string(from: Date())
         ]
 
         // Add optional fields
-        if let focus = session.focus {
-            sessionData["focus"] = focus
+        if let webUrl = session.webUrl {
+            sessionData["webUrl"] = webUrl
         }
 
-        if let platforms = session.platforms {
-            sessionData["platforms"] = platforms
+        if let type = session.type {
+            sessionData["type"] = type
         }
 
         if let duration = session.duration {
@@ -433,14 +380,6 @@ public class MarkdownFormatter {
 
         if let description = session.description {
             sessionData["description"] = description
-        }
-
-        if let speakers = session.speakers {
-            sessionData["speakers"] = speakers
-        }
-
-        if let topics = session.topics {
-            sessionData["topics"] = topics
         }
 
         if let wordCount = session.wordCount {
@@ -474,16 +413,15 @@ public class MarkdownFormatter {
                 "id": session.id,
                 "title": session.title,
                 "year": session.year,
-                "sessionNumber": session.sessionNumber,
-                "url": session.url as Any
+                "sessionNumber": session.sessionNumber
             ]
 
-            if let platforms = session.platforms {
-                sessionData["platforms"] = platforms
+            if let webUrl = session.webUrl {
+                sessionData["webUrl"] = webUrl
             }
 
-            if let focus = session.focus {
-                sessionData["focus"] = focus
+            if let type = session.type {
+                sessionData["type"] = type
             }
 
             if let duration = session.duration {
@@ -505,8 +443,6 @@ public class MarkdownFormatter {
             case .agent:
                 // Full info for agent mode
                 sessionData["description"] = session.description as Any
-                sessionData["speakers"] = session.speakers as Any
-                sessionData["topics"] = session.topics as Any
                 sessionData["transcript"] = session.transcript as Any
             }
 
