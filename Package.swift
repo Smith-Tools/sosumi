@@ -21,7 +21,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-testing.git", from: "0.9.0"),
+        .package(url: "https://github.com/apple/swift-testing.git", .upToNextMinor(from: "0.9.0")),
     ],
     targets: [
         .executableTarget(
