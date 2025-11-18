@@ -77,6 +77,12 @@ struct SosumiCLI: ParsableCommand {
         var detailed = false
 
         func run() throws {
+            // CRITICAL: Check if bundle exists before attempting search
+            guard BundleManager.bundleExists() else {
+                BundleManager.presentMissingBundleError(command: "sosumi wwdc")
+                // Note: presentMissingBundleError exits - never returns
+            }
+
             // Validate mode
             let outputMode: MarkdownFormatter.OutputMode
             switch mode.lowercased() {

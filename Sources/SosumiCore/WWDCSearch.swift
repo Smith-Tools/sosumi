@@ -169,42 +169,21 @@ public struct WWDCSearchEngine {
     // MARK: - Legacy Search Method
 
     public static func search(query: String, in dataPath: String, forceRealData: Bool = true) throws -> [SearchResult] {
-        // Try to load real data first, fail loudly if requested
-        do {
-            let realResults = try searchRealData(query: query, in: dataPath)
-            if !realResults.isEmpty {
-                return realResults
-            } else if forceRealData {
-                // Real data loaded but no results - this means data might be wrong
-                throw SearchError.realDataFailed
-            }
-        } catch {
-            if forceRealData {
-                // Fail loudly - don't silently fallback to mock data
-                print("❌ REAL DATA NOT AVAILABLE")
-                print()
-                print("📋 About this error:")
-                print("   You're using a DEVELOPMENT BUILD (built from source).")
-                print("   Development builds intentionally use fake/mock data.")
-                print()
-                print("🎯 To use real WWDC data:")
-                print("   1. Download the production binary from releases:")
-                print("      https://github.com/Smith-Tools/sosumi/releases")
-                print("   2. Run: chmod +x sosumi-macos")
-                print("   3. Run: ./sosumi-macos wwdc \"\(query)\"")
-                print()
-                print("💡 For development:")
-                print("   - This is expected behavior in source builds")
-                print("   - See INSTALLATION.md for contributor setup")
-                print("   - Mock data is used intentionally for testing")
-                throw SearchError.realDataFailed
-            } else {
-                print("⚠️  Could not load real WWDC data, falling back to mock: \(error)")
-            }
+        // CRITICAL: Check if bundle exists BEFORE attempting search
+        // NO FALLBACK TO MOCK DATA - if bundle missing, fail immediately
+        guard BundleManager.bundleExists() else {
+            BundleManager.presentMissingBundleError(command: "sosumi")
+            // Note: presentMissingBundleError exits the process - never returns
         }
 
-        // Only fallback to mock data if explicitly allowed
-        return createEnhancedMockResults(query: query)
+        // Bundle exists - proceed with real search only
+        do {
+            let realResults = try searchRealData(query: query, in: dataPath)
+            return realResults
+        } catch {
+            print("❌ Search failed: \(error)")
+            throw error
+        }
     }
 
     // MARK: - Private Database Methods
