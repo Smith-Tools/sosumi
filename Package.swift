@@ -43,10 +43,6 @@ let package = Package(
             dependencies: [
                 "SosumiCore",
                 .product(name: "Testing", package: "swift-testing"),
-            ],
-            // Swift 6 strict concurrency disabled due to Swift Testing framework compatibility issues
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=complete")
             ]
         ),
         .testTarget(
@@ -54,10 +50,6 @@ let package = Package(
             dependencies: [
                 "SosumiCLI",
                 .product(name: "Testing", package: "swift-testing"),
-            ],
-            // Swift 6 strict concurrency disabled due to Swift Testing framework compatibility issues
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=complete")
             ]
         ),
     ]
