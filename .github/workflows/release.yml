@@ -40,10 +40,16 @@ jobs:
           fi
 
           # Build with key injection and Swift 6 concurrency compatibility
-          swift build -c release -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY" -Xswiftc -Xfrontend -warn-concurrency
+          swift build -c release \
+            -Xswiftc -DSOSUMI_ENCRYPTION_KEY="$SOSUMI_ENCRYPTION_KEY" \
+            -Xswiftc -Xfrontend \
+            -Xswiftc -warn-concurrency
 
       - name: Run tests
-        run: swift test -Xswiftc -Xfrontend -warn-concurrency
+        run: |
+          swift test \
+            -Xswiftc -Xfrontend \
+            -Xswiftc -warn-concurrency
 
       - name: Create distribution package
         run: make dist
