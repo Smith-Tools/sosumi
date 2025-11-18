@@ -51,7 +51,7 @@ repos:
     hooks:
       - id: no-hardcoded-keys
         name: Check for hardcoded encryption keys
-        entry: bash -c 'grep -r "REPLACE_WITH_ACTUAL_DEVELOPMENT_KEY_32_BYTES\|REPLACE_ME_WITH_PRODUCTION_KEY_32BYTES\|DEMO_KEY_REPLACE_IN_PRODUCTION" Sources/ || exit 0'
+        entry: bash -c 'grep -r "0x[0-9a-f]\{32\}\|['\''"][0-9a-f]\{32\}['\''"]" Sources/ --include="*.swift" | grep -v "//.*test\|//.*TODO\|SOSUMI_ENCRYPTION_KEY\|development.*key" && echo "Hardcoded keys found!" && exit 1 || exit 0'
         language: system
         types: [swift]
         pass_filenames: false

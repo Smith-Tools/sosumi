@@ -96,8 +96,8 @@ jobs:
           exit 1
         fi
 
-        # Check for hardcoded encryption keys (allow legitimate sosumi encryption)
-        if grep -r "AES.*key\\|decrypt.*key\\|encryption.*key" --include="*.swift" Sources/ | grep -v "//.*TODO\|//.*Example\|//.*test\|Data Obfuscation"; then
+        # Check for hardcoded encryption keys (exclude legitimate sosumi crypto patterns)
+        if grep -r "0x[0-9a-f]\{32\}\|['\"][0-9a-f]\{32\}['\"]" --include="*.swift" Sources/ | grep -v "//.*test\|//.*TODO\|SOSUMI_ENCRYPTION_KEY\|development.*key"; then
           echo "⚠️  Potential hardcoded encryption keys found"
           exit 1
         fi
