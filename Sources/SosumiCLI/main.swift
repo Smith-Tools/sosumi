@@ -491,41 +491,31 @@ struct SosumiCLI: AsyncParsableCommand {
 
             let client = AppleDocumentationClient()
             let renderer = AppleDocumentationRenderer()
+            let higRenderer = HIGRenderer()
 
             do {
-                // Fetch the documentation
-                let documentation = try await client.fetchDocumentation(path: path)
+                let source = client.resolveSource(for: path)
 
-                // Validate format
-                let outputFormat: String
-                switch format.lowercased() {
-                case "markdown":
-                    outputFormat = "markdown"
-                case "json":
-                    outputFormat = "json"
-                default:
-                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
-                    throw ExitCode.failure
-                }
+                switch source {
+                case .documentation(let normalizedPath):
+                    try await handleDocumentationFetch(
+                        client: client,
+                        renderer: renderer,
+                        normalizedPath: normalizedPath
+                    )
 
-                let content: String
-                if outputFormat == "markdown" {
-                    content = renderer.renderToMarkdown(documentation)
-                } else {
-                    // JSON output
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                    encoder.dateEncodingStrategy = .iso8601
-                    let data = try encoder.encode(documentation)
-                    content = String(data: data, encoding: .utf8) ?? "{}"
-                }
+                case .humanInterfaceGuidelines(let higPath):
+                    try await handleHIGFetch(
+                        client: client,
+                        renderer: higRenderer,
+                        path: higPath
+                    )
 
-                // Output to file or stdout
-                if let outputFilename = output {
-                    try content.write(toFile: outputFilename, atomically: true, encoding: .utf8)
-                    print("✅ Documentation saved to: \(outputFilename)")
-                } else {
-                    print(content)
+                case .humanInterfaceGuidelinesTableOfContents:
+                    try await handleHIGTableOfContents(
+                        client: client,
+                        renderer: higRenderer
+                    )
                 }
 
             } catch {
@@ -533,6 +523,63 @@ struct SosumiCLI: AsyncParsableCommand {
                 print("💡 Try using a path like 'swiftui/view' or a full URL")
                 print("🔗 Apple Developer documentation: https://developer.apple.com/documentation")
                 throw ExitCode.failure
+            }
+        }
+
+        private func handleDocumentationFetch(
+            client: AppleDocumentationClient,
+            renderer: AppleDocumentationRenderer,
+            normalizedPath: String
+        ) async throws {
+            let documentation = try await client.fetchDocumentation(path: normalizedPath)
+            let content = try renderOutputMarkdownIfNeeded(renderer.renderToMarkdown(documentation), jsonObject: documentation)
+            try writeOrPrint(content)
+        }
+
+        private func handleHIGFetch(
+            client: AppleDocumentationClient,
+            renderer: HIGRenderer,
+            path: String
+        ) async throws {
+            let page = try await client.fetchHIGPage(path: path)
+            let sourceURL = "https://developer.apple.com/design/human-interface-guidelines/\(path)"
+            let markdown = renderer.renderPage(page, sourceURL: sourceURL)
+            let content = try renderOutputMarkdownIfNeeded(markdown, jsonObject: page)
+            try writeOrPrint(content)
+        }
+
+        private func handleHIGTableOfContents(
+            client: AppleDocumentationClient,
+            renderer: HIGRenderer
+        ) async throws {
+            let toc = try await client.fetchHIGTableOfContents()
+            let markdown = renderer.renderTableOfContents(toc)
+            let content = try renderOutputMarkdownIfNeeded(markdown, jsonObject: toc)
+            try writeOrPrint(content)
+        }
+
+        private func renderOutputMarkdownIfNeeded<T: Encodable>(_ markdown: String, jsonObject: T) throws -> String {
+            switch format.lowercased() {
+            case "markdown":
+                return markdown
+            case "json":
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(jsonObject)
+                return String(data: data, encoding: .utf8) ?? "{}"
+            default:
+                print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                throw ExitCode.failure
+            }
+        }
+
+        private func writeOrPrint(_ content: String) throws {
+            if let outputFilename = output {
+                try content.write(toFile: outputFilename, atomically: true, encoding: .utf8)
+                print("✅ Documentation saved to: \(outputFilename)")
+            } else {
+                print(content)
             }
         }
     }

@@ -11,6 +11,12 @@ public class AppleDocumentationClient {
     private let documentationBaseURL = "https://developer.apple.com"
     private let userAgentPool: [String]
 
+    public enum DocumentationSource {
+        case documentation(String)
+        case humanInterfaceGuidelines(String)
+        case humanInterfaceGuidelinesTableOfContents
+    }
+
     // MARK: - Constants
 
     /// List of Safari user agents for rotation (from sosumi.ai)
@@ -62,6 +68,20 @@ public class AppleDocumentationClient {
 
     // MARK: - Public Methods
 
+    /// Resolves the appropriate documentation source (regular doc vs HIG)
+    public func resolveSource(for path: String) -> DocumentationSource {
+        if let higPath = extractHIGPath(from: path) {
+            if higPath.isEmpty {
+                return .humanInterfaceGuidelinesTableOfContents
+            } else {
+                return .humanInterfaceGuidelines(higPath)
+            }
+        }
+
+        let normalized = normalizeDocumentationPath(path)
+        return .documentation(normalized)
+    }
+
     /// Fetches framework documentation index
     public func fetchFrameworkIndex(framework: String) async throws -> [FrameworkIndex] {
         let url = "\(baseURL)/index/\(framework)"
@@ -84,8 +104,21 @@ public class AppleDocumentationClient {
 
     /// Fetches documentation for a specific path
     public func fetchDocumentation(path: String) async throws -> AppleDocumentation {
-        let normalizedPath = normalizePath(path)
+        let normalizedPath = normalizeDocumentationPath(path)
         let url = "\(baseURL)/\(normalizedPath).json"
+        return try await performRequest(url: url)
+    }
+
+    /// Fetches HIG table of contents
+    public func fetchHIGTableOfContents() async throws -> HIGTableOfContents {
+        let url = "\(baseURL)/index/design--human-interface-guidelines"
+        return try await performRequest(url: url)
+    }
+
+    /// Fetches a specific HIG page by path (e.g. "shareplay")
+    public func fetchHIGPage(path: String) async throws -> HIGPage {
+        let slug = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let url = "\(baseURL)/design/human-interface-guidelines/\(slug).json"
         return try await performRequest(url: url)
     }
 
@@ -176,13 +209,20 @@ public class AppleDocumentationClient {
     }
 
     /// Normalizes a documentation path (removes .json, ensures proper format)
-    private func normalizePath(_ path: String) -> String {
+    private func normalizeDocumentationPath(_ path: String) -> String {
         var normalized = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.isEmpty {
+            return "documentation"
+        }
 
-        if normalized.hasPrefix("http") {
-            if let range = normalized.range(of: "developer.apple.com/") {
-                normalized = String(normalized[range.upperBound...])
-            }
+        normalized = normalizedURLString(for: normalized)
+
+        if let components = URLComponents(string: normalized) {
+            normalized = components.path
+        }
+
+        if normalized.hasPrefix("/") {
+            normalized.removeFirst()
         }
 
         if normalized.hasPrefix("tutorials/data/") {
@@ -194,6 +234,49 @@ public class AppleDocumentationClient {
 
         if !normalized.hasPrefix("documentation/") {
             normalized = "documentation/\(normalized)"
+        }
+
+        return normalized
+    }
+
+    /// Attempts to extract an HIG path if present
+    private func extractHIGPath(from path: String) -> String? {
+        let normalized = normalizedURLString(for: path)
+        guard let components = URLComponents(string: normalized) else {
+            return nil
+        }
+
+        let trimmedPath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let lower = trimmedPath.lowercased()
+        let higPrefix = "design/human-interface-guidelines"
+        guard lower.hasPrefix(higPrefix) else {
+            return nil
+        }
+
+        let suffix = trimmedPath.dropFirst(higPrefix.count)
+        return suffix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private func normalizedURLString(for rawPath: String) -> String {
+        var normalized = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.isEmpty {
+            return "\(documentationBaseURL)/documentation"
+        }
+
+        if normalized.hasPrefix("doc://") {
+            normalized = "https://" + normalized.dropFirst("doc://".count)
+        } else if normalized.hasPrefix("developer.apple.com/") {
+            normalized = "https://" + normalized
+        } else if normalized.hasPrefix("//") {
+            normalized = "https:" + normalized
+        } else if !normalized.contains("://") {
+            if normalized.lowercased().hasPrefix("design/") {
+                normalized = "\(documentationBaseURL)/\(normalized)"
+            } else if normalized.lowercased().hasPrefix("documentation/") {
+                normalized = "\(documentationBaseURL)/\(normalized)"
+            } else {
+                normalized = "\(documentationBaseURL)/documentation/\(normalized)"
+            }
         }
 
         return normalized
