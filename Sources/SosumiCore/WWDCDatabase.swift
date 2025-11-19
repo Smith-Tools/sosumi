@@ -173,20 +173,20 @@ public class WWDCDatabase {
     public func search(query: String, limit: Int = 20, offset: Int = 0) throws -> [SearchResult] {
         try ensureInitialized()
 
+        // Use string interpolation instead of parameter binding for FTS5 MATCH queries
+        // This works around the SQLite FTS5 parameter binding issue in Swift
         let searchQuery = """
         SELECT
             s.id, s.title, s.year, s.session_number, s.type, s.duration,
             s.description, s.web_url,
             t.content, t.word_count,
-            bm25(transcripts_fts) as relevance_score,
-            snippet(transcripts_fts, 1, '<mark>', '</mark>', '...', 32) as snippet_title,
-            snippet(transcripts_fts, 2, '<mark>', '</mark>', '...', 64) as snippet_content
+            bm25(transcripts_fts)
         FROM transcripts_fts
         JOIN sessions s ON transcripts_fts.session_id = s.id
         LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE transcripts_fts MATCH ?
-        ORDER BY relevance_score
-        LIMIT ? OFFSET ?
+        WHERE transcripts_fts MATCH '\(query)'
+        ORDER BY bm25(transcripts_fts)
+        LIMIT \(limit) OFFSET \(offset)
         """
 
         var stmt: OpaquePointer?
@@ -195,27 +195,11 @@ public class WWDCDatabase {
             throw WWDCDatabaseError.queryFailed(errmsg)
         }
 
-        sqlite3_bind_text(stmt, 1, query, -1, nil)
-        sqlite3_bind_int(stmt, 2, Int32(limit))
-        sqlite3_bind_int(stmt, 3, Int32(offset))
-
         var results: [SearchResult] = []
-
         while sqlite3_step(stmt) == SQLITE_ROW {
             let session = extractSessionFrom(stmt: stmt)
             let relevanceScore = sqlite3_column_double(stmt, 10)
-
-            var matchingText: [String] = []
-
-            // Extract snippets
-            if let titleSnippet = extractString(from: stmt, at: 11) {
-                matchingText.append("Title: \(titleSnippet)")
-            }
-            if let contentSnippet = extractString(from: stmt, at: 12) {
-                matchingText.append("Content: \(contentSnippet)")
-            }
-
-            results.append(SearchResult(session: session, relevanceScore: relevanceScore, matchingText: matchingText))
+            results.append(SearchResult(session: session, relevanceScore: relevanceScore, matchingText: []))
         }
 
         sqlite3_finalize(stmt)
@@ -227,6 +211,8 @@ public class WWDCDatabase {
     public func getSession(byId id: String) throws -> Session? {
         try ensureInitialized()
 
+        // Use string interpolation instead of parameter binding to work around SQLite binding issues
+        let sanitizedId = id.replacingOccurrences(of: "'", with: "''")
         let query = """
         SELECT
             s.id, s.title, s.year, s.session_number, s.type, s.duration,
@@ -234,7 +220,7 @@ public class WWDCDatabase {
             t.content, t.word_count
         FROM sessions s
         LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE s.id = ?
+        WHERE s.id = '\(sanitizedId)'
         """
 
         var stmt: OpaquePointer?
@@ -242,8 +228,6 @@ public class WWDCDatabase {
             let errmsg = String(cString: sqlite3_errmsg(db))
             throw WWDCDatabaseError.queryFailed(errmsg)
         }
-
-        sqlite3_bind_text(stmt, 1, id, -1, nil)
 
         let result = sqlite3_step(stmt)
         if result == SQLITE_ROW {
@@ -260,6 +244,7 @@ public class WWDCDatabase {
     public func getSessionsByYear(_ year: Int, limit: Int = 50) throws -> [Session] {
         try ensureInitialized()
 
+        // Use string interpolation instead of parameter binding to work around SQLite binding issues
         let query = """
         SELECT
             s.id, s.title, s.year, s.session_number, s.type, s.duration,
@@ -267,9 +252,9 @@ public class WWDCDatabase {
             t.content, t.word_count
         FROM sessions s
         LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE s.year = ?
+        WHERE s.year = \(year)
         ORDER BY s.session_number
-        LIMIT ?
+        LIMIT \(limit)
         """
 
         var stmt: OpaquePointer?
@@ -277,9 +262,6 @@ public class WWDCDatabase {
             let errmsg = String(cString: sqlite3_errmsg(db))
             throw WWDCDatabaseError.queryFailed(errmsg)
         }
-
-        sqlite3_bind_int(stmt, 1, Int32(year))
-        sqlite3_bind_int(stmt, 2, Int32(limit))
 
         var sessions: [Session] = []
 

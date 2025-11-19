@@ -8,19 +8,21 @@ struct SosumiCLI: ParsableCommand {
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
         version: "1.2.0",
         subcommands: [
-            SearchCommand.self,
+            DocsCommand.self,
             WWDCCommand.self,
-            WWDCSessionCommand.self,
-            WWDCYearCommand.self,
-            WWDCStatsCommand.self,
+            SessionCommand.self,
+            YearCommand.self,
+            StatsCommand.self,
             UpdateCommand.self,
-            TestCommand.self
+            TestCommand.self,
+            AppleDocCommand.self
         ]
     )
 
-    struct SearchCommand: ParsableCommand {
+    struct DocsCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Search Apple documentation and WWDC content"
+            commandName: "docs",
+            abstract: "Search Apple Developer documentation"
         )
 
         @Argument(help: "Search query")
@@ -32,30 +34,43 @@ struct SosumiCLI: ParsableCommand {
         @Option(name: .long, help: "Content type filter")
         var type: String?
 
-        func run() throws {
-            print("🔍 Searching for: \(query)")
+        func run() async throws {
+            print("🔍 Searching Apple documentation for: \(query)")
 
-            // For now, simulate a basic search
-            // In a full implementation, this would use SosumiCore
-            print("📚 Found 3 results for '\(query)':")
-            print("1. Codable - Apple Developer Documentation")
-            print("   Learn how to encode and decode custom data types")
-            print()
-            print("2. Encoding and Decoding Custom Types")
-            print("   Swift Language Guide section on Codable")
-            print()
-            print("3. Codable Best Practices")
-            print("   Performance considerations and tips")
+            let client = AppleDocumentationClient()
+            let renderer = AppleDocumentationRenderer()
 
-            if let limit = limit {
-                print("📊 Showing top \(limit) results")
+            do {
+                // Perform comprehensive search across Apple documentation
+                let searchResponse = try await client.comprehensiveSearch(query: query)
+
+                if searchResponse.results.isEmpty {
+                    print("❌ No Apple documentation found for: \(query)")
+                    print("💡 Try searching for frameworks like 'SwiftUI', 'Combine', 'async'")
+                    return
+                }
+
+                // Render search results to markdown
+                let markdown = renderer.renderSearchResults(searchResponse)
+                print(markdown)
+
+                // Apply limit if specified
+                if let limit = limit, limit < searchResponse.results.count {
+                    print("📊 Showing top \(limit) of \(searchResponse.totalFound) results")
+                }
+
+            } catch {
+                print("❌ Search failed: \(error)")
+                print("💡 This might be a network issue or the API endpoints may have changed")
+                print("🔗 For Apple Developer documentation, visit: https://developer.apple.com/documentation")
             }
         }
     }
 
     struct WWDCCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Search WWDC session content with enhanced search"
+            commandName: "wwdc",
+            abstract: "Search WWDC session content"
         )
 
         @Argument(help: "WWDC search query")
@@ -155,8 +170,9 @@ struct SosumiCLI: ParsableCommand {
         }
     }
 
-    struct WWDCSessionCommand: ParsableCommand {
+    struct SessionCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "session",
             abstract: "Get a specific WWDC session by ID"
         )
 
@@ -218,8 +234,9 @@ struct SosumiCLI: ParsableCommand {
         }
     }
 
-    struct WWDCYearCommand: ParsableCommand {
+    struct YearCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "year",
             abstract: "List WWDC sessions by year"
         )
 
@@ -289,8 +306,9 @@ struct SosumiCLI: ParsableCommand {
         }
     }
 
-    struct WWDCStatsCommand: ParsableCommand {
+    struct StatsCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "stats",
             abstract: "Show WWDC database statistics"
         )
 
@@ -312,6 +330,7 @@ struct SosumiCLI: ParsableCommand {
 
     struct UpdateCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "update",
             abstract: "Update bundled documentation data"
         )
 
@@ -330,6 +349,7 @@ struct SosumiCLI: ParsableCommand {
 
     struct TestCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "test",
             abstract: "Test sosumi data access and report status"
         )
 
@@ -421,6 +441,72 @@ struct SosumiCLI: ParsableCommand {
             }
 
             print(String(repeating: "=", count: 50))
+        }
+    }
+
+    struct AppleDocCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "doc",
+            abstract: "Fetch specific Apple documentation page"
+        )
+
+        @Argument(help: "Documentation path or identifier")
+        var path: String
+
+        @Option(name: .long, help: "Output format: markdown or json")
+        var format: String = "markdown"
+
+        @Option(name: .long, help: "Save to file instead of stdout")
+        var output: String?
+
+        func run() async throws {
+            print("📚 Fetching Apple documentation: \(path)")
+
+            let client = AppleDocumentationClient()
+            let renderer = AppleDocumentationRenderer()
+
+            do {
+                // Fetch the documentation
+                let documentation = try await client.fetchDocumentation(path: path)
+
+                // Validate format
+                let outputFormat: String
+                switch format.lowercased() {
+                case "markdown":
+                    outputFormat = "markdown"
+                case "json":
+                    outputFormat = "json"
+                default:
+                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                    throw ExitCode.failure
+                }
+
+                let content: String
+                if outputFormat == "markdown" {
+                    content = renderer.renderToMarkdown(documentation)
+                } else {
+                    // JSON output
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    encoder.dateEncodingStrategy = .iso8601
+                    let data = try encoder.encode(documentation)
+                    content = String(data: data, encoding: .utf8) ?? "{}"
+                }
+
+                // Output to file or stdout
+                if let outputFilename = output {
+                    try content.write(toFile: outputFilename, atomically: true, encoding: .utf8)
+                    print("✅ Documentation saved to: \(outputFilename)")
+                } else {
+                    print(content)
+                }
+
+            } catch {
+                print("❌ Failed to fetch documentation: \(error)")
+                print("💡 Try using a path like 'swiftui/view' or a full URL")
+                print("🔗 Apple Developer documentation: https://developer.apple.com/documentation")
+                throw ExitCode.failure
+            }
         }
     }
 }
