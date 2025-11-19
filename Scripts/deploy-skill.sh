@@ -12,7 +12,7 @@ echo ""
 SOSUMI_SOURCE="/Volumes/Plutonian/_Developer/Smith Tools/sosumi"
 LOCAL_SKILL_DIR="/Users/elkraneo/.claude/skills/sosumi"
 LOCAL_BIN_DIR="$HOME/.local/bin"
-DB_DIR="$HOME/.sosumi"
+DB_DIR="$HOME/.claude/resources/databases"
 
 # Validate source directory
 if [ ! -d "$SOSUMI_SOURCE" ]; then
@@ -176,7 +176,7 @@ cat > "$LOCAL_SKILL_DIR/scripts/setup-database.sh" << EOF
 #!/bin/bash
 # Setup database for sosumi skill
 SKILL_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
-DB_DIR="\$HOME/.sosumi"
+DB_DIR="\$HOME/.claude/resources/databases"
 
 echo "Setting up sosumi database..."
 mkdir -p "\$DB_DIR"

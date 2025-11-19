@@ -9,10 +9,10 @@ public struct BundleManager {
     public static func findBundle() -> String? {
         let fileManager = FileManager.default
 
-        // First check for plain database in user home (v1.3.0+)
-        // Plain database should only exist in ~/.sosumi/ for local development
+        // First check for plain database in Claude resources directory (v1.3.0+)
+        // Plain database should only exist in ~/.claude/resources/databases/ for Claude skills
         let userDbPath = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(".sosumi/wwdc.db").path
+            .appendingPathComponent(".claude/resources/databases/wwdc.db").path
         if fileManager.fileExists(atPath: userDbPath) {
             return userDbPath
         }

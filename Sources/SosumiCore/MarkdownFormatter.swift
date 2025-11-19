@@ -6,6 +6,7 @@ public class MarkdownFormatter {
     // MARK: - Output Modes
 
     public enum OutputMode {
+        case compact // Quick overview: title + ID + duration + topics
         case user    // Short snippet + Apple link
         case agent   // Full transcript + metadata
     }
@@ -125,6 +126,8 @@ public class MarkdownFormatter {
 
         // Mode-specific content
         switch mode {
+        case .compact:
+            output += formatCompactModeContent(result)
         case .user:
             output += formatUserModeContent(result)
         case .agent:
@@ -200,6 +203,84 @@ public class MarkdownFormatter {
         return output
     }
 
+    private static func formatCompactModeContent(_ result: WWDCDatabase.SearchResult) -> String {
+        let session = result.session
+        var output = ""
+
+        // Extract key topics from description/title
+        let topics = extractKeyTopics(from: session)
+        output += "   🎯 \(topics.joined(separator: " • "))\n"
+
+        // One-line format: ID • duration • topics
+        if let duration = session.duration {
+            output += "   📍 \(session.sessionNumber) • \(formatDuration(duration)) • \(session.year)\n"
+        } else {
+            output += "   📍 \(session.sessionNumber) • \(session.year)\n"
+        }
+
+        return output
+    }
+
+    private static func extractKeyTopics(from session: WWDCDatabase.Session) -> [String] {
+        var topics: [String] = []
+
+        // Common framework patterns
+        let title = session.title.lowercased()
+        let description = session.description?.lowercased() ?? ""
+
+        // Extract frameworks
+        if title.contains("swiftui") || description.contains("swiftui") {
+            topics.append("SwiftUI")
+        }
+        if title.contains("combine") || description.contains("combine") {
+            topics.append("Combine")
+        }
+        if title.contains("realitykit") || description.contains("realitykit") {
+            topics.append("RealityKit")
+        }
+        if title.contains("arkit") || description.contains("arkit") {
+            topics.append("ARKit")
+        }
+        if title.contains("shareplay") || description.contains("shareplay") {
+            topics.append("SharePlay")
+        }
+        if title.contains("core data") || description.contains("core data") {
+            topics.append("Core Data")
+        }
+        if title.contains("swift concurrency") || description.contains("async/await") {
+            topics.append("Concurrency")
+        }
+        if title.contains("visionos") || description.contains("vision os") {
+            topics.append("visionOS")
+        }
+
+        // Extract key concepts
+        if title.contains("what's new") || description.contains("new features") {
+            topics.append("New Features")
+        }
+        if title.contains("essentials") || description.contains("fundamentals") {
+            topics.append("Essentials")
+        }
+        if title.contains("performance") || description.contains("optimization") {
+            topics.append("Performance")
+        }
+        if title.contains("design") || description.contains("ui") {
+            topics.append("Design")
+        }
+
+        // Fallback if no topics found
+        if topics.isEmpty {
+            // Extract keywords from title
+            let words = title.components(separatedBy: " ")
+                .filter { $0.count > 3 }
+                .prefix(2)
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            topics = Array(words)
+        }
+
+        return topics
+    }
+
     private static func formatSessionAsMarkdown(_ session: WWDCDatabase.Session, mode: OutputMode) -> String {
         var output = ""
 
@@ -221,6 +302,16 @@ public class MarkdownFormatter {
 
         // Mode-specific content
         switch mode {
+        case .compact:
+            // Compact format: one line with key info
+            let topics = extractKeyTopics(from: session)
+            let topicsStr = topics.isEmpty ? "General" : topics.joined(separator: " • ")
+            if let duration = session.duration {
+                output += "**\(session.title)** (WWDC\(session.year)-\(session.sessionNumber)) • \(formatDuration(duration)) • \(topicsStr)\n\n"
+            } else {
+                output += "**\(session.title)** (WWDC\(session.year)-\(session.sessionNumber)) • \(topicsStr)\n\n"
+            }
+
         case .user:
             output += "**📺 Watch Full Video:** [Apple Developer](\(session.webUrl ?? "#"))\n\n"
             if let description = session.description, !description.isEmpty {
@@ -336,6 +427,11 @@ public class MarkdownFormatter {
 
             // Mode-specific content
             switch mode {
+            case .compact:
+                if let description = result.session.description {
+                    sessionData["description"] = String(description.prefix(100)).appending("...")
+                }
+                sessionData["topics"] = extractKeyTopics(from: result.session)
             case .user:
                 if let description = result.session.description {
                     sessionData["description"] = String(description.prefix(200)).appending("...")
@@ -388,6 +484,9 @@ public class MarkdownFormatter {
 
         // Mode-specific content
         switch mode {
+        case .compact:
+            // Compact mode includes minimal info
+            sessionData["topics"] = extractKeyTopics(from: session)
         case .user:
             // User mode includes minimal information
             break
@@ -434,6 +533,12 @@ public class MarkdownFormatter {
 
             // Mode-specific content
             switch mode {
+            case .compact:
+                // Minimal info for compact mode
+                if let description = session.description {
+                    sessionData["description"] = String(description.prefix(50)).appending("...")
+                }
+                sessionData["topics"] = extractKeyTopics(from: session)
             case .user:
                 // Minimal info for user mode
                 if let description = session.description {

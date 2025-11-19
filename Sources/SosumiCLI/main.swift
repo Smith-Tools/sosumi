@@ -77,8 +77,8 @@ struct SosumiCLI: ParsableCommand {
         @Argument(help: "WWDC search query")
         var query: String
 
-        @Option(name: .long, help: "Output mode: user (snippet + link) or agent (full transcript)")
-        var mode: String = "user"
+        @Option(name: .long, help: "Output verbosity: compact (quick overview), detailed (full descriptions), or full (complete information)")
+        var verbosity: String = "compact"
 
         @Option(name: .long, help: "Output format: markdown or json")
         var format: String = "markdown"
@@ -99,15 +99,17 @@ struct SosumiCLI: ParsableCommand {
                 // Note: presentMissingBundleError exits - never returns
             }
 
-            // Validate mode
+            // Validate verbosity
             let outputMode: MarkdownFormatter.OutputMode
-            switch mode.lowercased() {
-            case "user":
-                outputMode = .user
-            case "agent":
-                outputMode = .agent
+            switch verbosity.lowercased() {
+            case "compact":
+                outputMode = .compact
+            case "detailed":
+                outputMode = .user  // Detailed = current user mode
+            case "full":
+                outputMode = .agent  // Full = current agent mode
             default:
-                print("❌ Invalid mode: \(mode). Use 'user' or 'agent'.")
+                print("❌ Invalid verbosity: \(verbosity). Use 'compact', 'detailed', or 'full'.")
                 throw ExitCode.failure
             }
 

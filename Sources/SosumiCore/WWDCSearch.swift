@@ -320,10 +320,10 @@ public struct WWDCSearchEngine {
     }
 
     private static func getPlainDatabasePath() -> String? {
-        // Look for plain wwdc.db in user home directory only (v1.3.0+)
+        // Look for plain wwdc.db in Claude resources directory (v1.3.0+)
         // Database should never be in app bundle or public repos
         let userDbPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".sosumi/wwdc.db").path
+            .appendingPathComponent(".claude/resources/databases/wwdc.db").path
 
         if FileManager.default.fileExists(atPath: userDbPath) {
             return userDbPath
