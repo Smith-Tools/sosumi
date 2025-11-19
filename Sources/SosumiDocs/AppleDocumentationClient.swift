@@ -264,7 +264,22 @@ public class AppleDocumentationClient {
         }
 
         if normalized.hasPrefix("doc://") {
-            normalized = "https://" + normalized.dropFirst("doc://".count)
+            let remainder = normalized.dropFirst("doc://".count)
+            if remainder.hasPrefix("/") {
+                normalized = "\(documentationBaseURL)\(remainder)"
+            } else if let slashIndex = remainder.firstIndex(of: "/") {
+                let prefix = remainder[..<slashIndex]
+                let suffix = remainder[slashIndex...]  // includes leading slash
+                if prefix.contains(".") {
+                    normalized = "\(documentationBaseURL)\(suffix)"
+                } else {
+                    normalized = "\(documentationBaseURL)/\(remainder)"
+                }
+            } else if remainder.isEmpty {
+                normalized = documentationBaseURL
+            } else {
+                normalized = "\(documentationBaseURL)/\(remainder)"
+            }
         } else if normalized.hasPrefix("developer.apple.com/") {
             normalized = "https://" + normalized
         } else if normalized.hasPrefix("//") {
