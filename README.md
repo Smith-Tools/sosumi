@@ -1,8 +1,13 @@
-# sosumi - Complete WWDC Transcript Search System
+# sosumi – Apple Documentation & WWDC Search
 
-> **Complete WWDC transcript search system for users and AI agents.**
+> **Real-time Apple documentation fetch + local WWDC transcript search for users and AI agents.**
 
-Production-ready WWDC search system with dual output modes: user-friendly snippets with Apple links, and full transcripts for AI synthesis. Features SQLite database, AES-256-GCM encryption, and multiple output formats.
+sosumi combines two data paths:
+
+- **Live Apple Documentation** – hits Apple’s undocumented JSON endpoints for any path or keyword (`sosumi docs`, `sosumi doc`). Results render to Markdown/JSON and include code listings, availability, and platform metadata.
+- **Local WWDC Database** – ships an encrypted SQLite bundle (2018‑2025) with FTS5 search, dual user/agent renderers, and transcript access (`sosumi wwdc`, `session`, `year`).
+
+Both paths are exposed through the CLI and the Claude skill so agents can mix official docs with WWDC guidance in a single response.
 
 ## ⚠️ Important: Development vs Production Builds
 
@@ -19,14 +24,16 @@ Production-ready WWDC search system with dual output modes: user-friendly snippe
 **Production Build** (downloaded binary):
 - ✅ Full WWDC transcript database (2018-2025)
 - ✅ Real searchable session data
+- ✅ Live Apple documentation search/fetch enabled
 - ✅ Works instantly - no configuration needed
 - ✅ Data is encrypted and embedded in binary
 - 🎯 **This is what you want if you're a user**
 
 **Development Build** (cloned from source):
-- ⚠️ Uses **fake/mock data** for testing
+- ⚠️ Uses **fake/mock data** for WWDC testing
 - ⚠️ WWDC search returns placeholder results
 - ⚠️ Cannot decrypt real encrypted data without production key
+- ✅ Apple documentation search still works (hits live endpoints)
 - ✅ Used for feature development and testing
 - 🎯 **This is what developers need - not intended for users**
 
@@ -49,45 +56,46 @@ sosumi provides two distinct search modes:
 - **Structured data** in JSON option
 
 ### 📚 Coverage
-- **3,000+ WWDC sessions** (2007-2024)
-- **Full-text searchable** SQLite database
-- **Encrypted data bundle** (~850MB embedded)
-- **Real transcripts** with speaker attribution
+- **Live Apple documentation search** (Swift, SwiftUI, UIKit, Combine, RealityKit, etc.)
+- **WWDC sessions** 2014‑2025 (3,216 entries; 1,355 transcripts with speakers)
+- **Encrypted SQLite bundle** (~850 MB release artifact, ~166 MB uncompressed)
+- **Dual renderers** (compact vs agent) + Markdown/JSON output
 
 ## 🚀 Quick Start
 
 ### For Users: Download Production Binary
 
 ```bash
-# Go to releases page
-# https://github.com/Smith-Tools/sosumi/releases
-
-# Download the latest sosumi-macos binary
-# Make it executable and use
+# Download latest release and make executable
+wget https://github.com/Smith-Tools/sosumi/releases/latest/download/sosumi-macos
 chmod +x sosumi-macos
 
-# Test it works - User Mode (default)
-./sosumi-macos wwdc-command "SwiftUI"
+# Live Apple documentation search
+./sosumi-macos docs "SwiftUI layout" --limit 5
 
-# Test it works - Agent Mode
-./sosumi-macos wwdc-command "SwiftUI" --mode agent
+# Fetch a specific doc page
+./sosumi-macos doc swiftui/view
 
-# Test JSON output
-./sosumi-macos wwdc-command "SharePlay" --format json
+# WWDC search (user mode)
+./sosumi-macos wwdc "SwiftUI animations"
+
+# WWDC search (agent/full transcript)
+./sosumi-macos wwdc "SharePlay" --verbosity full --format json
 ```
 
-**That's it. No configuration needed. Everything works.**
+**That's it. No configuration needed. Production binaries include the encrypted WWDC bundle and ship with live doc capabilities enabled.**
 
 ### For Claude Code Users
 
 ```bash
-# Download production binary from releases
-# Create skill directory
+# Install the production binary or run Scripts/deploy-skill.sh
 mkdir -p ~/.claude/skills/sosumi
 
-# Copy skill manifest (or symlink repo)
-# Usage:
-/skill sosumi wwdc "SwiftUI"
+# Once installed:
+/skill sosumi search "visionOS timeline"            # Combined docs + WWDC
+/skill sosumi search "URLSession metrics" --type docs
+/skill sosumi doc swiftui/app
+/skill sosumi wwdc "GroupActivities"
 ```
 
 ### For Developers: Clone & Build
@@ -103,109 +111,100 @@ swift build
 # Run tests
 swift test
 
-# ⚠️ WWDC search will return mock data - this is expected in development
-./.build/debug/sosumi wwdc "async await"
+# ⚠️ WWDC search returns mock data (expected in dev)
+swift run sosumi wwdc "async await"
+
+# ✅ Apple documentation search still hits live endpoints
+swift run sosumi docs "SwiftUI" --limit 5
 ```
 
 **Note**: Development builds use fake data intentionally. This allows developers to work on features without access to production encryption keys. If you want real data, use the production binary instead.
 
 ## 📖 Usage Guide
 
-### Basic Search
+### Apple Documentation Search (live network)
 
 ```bash
-# Search in user mode (default) - quick snippets + Apple links
-sosumi wwdc-command "SwiftUI animations"
+# Search across all Apple frameworks
+sosumi docs "SwiftUI layout" --limit 5
 
-# Search in agent mode - full transcript + metadata
-sosumi wwdc-command "SwiftUI animations" --mode agent
+# Filter by result type
+sosumi docs "AnimationPlaybackController" --type article
 
-# JSON output for programmatic use
-sosumi wwdc-command "SharePlay" --format json
-
-# Combine agent mode with JSON output
-sosumi wwdc-command "async await" --mode agent --format json
+# Reduce latency / tokens by limiting hits
+sosumi docs "GroupActivities" --limit 3
 ```
 
-### Advanced Commands
+### Fetch Specific Documentation Pages
 
 ```bash
-# Get a specific session by ID
-sosumi wwdc-session-command "wwdc2024-10102"
+# Markdown output (default)
+sosumi doc swiftui/view
 
-# Get session in agent mode with full transcript
-sosumi wwdc-session-command "wwdc2024-10102" --mode agent
+# JSON for tooling or agents
+sosumi doc groupactivities/drawing_content_in_a_group_session --format json
 
-# List sessions by year
-sosumi wwdc-year-command 2024
-
-# Get sessions by year in JSON format
-sosumi wwdc-year-command 2023 --format json
-
-# View database statistics
-sosumi wwdc-stats-command
+# Save to disk
+sosumi doc swiftui/app --format markdown --output ~/Desktop/swiftui-app.md
 ```
 
-### Output Modes
+### WWDC Content (local encrypted DB)
 
-**User Mode (default):**
 ```bash
-sosumi wwdc-command "SwiftUI"
-# Output: Quick summary + 📍 Full video: https://...
+# Default (user mode, compact summaries)
+sosumi wwdc "visionOS layout"
+
+# Agent mode (full transcript blocks)
+sosumi wwdc "SwiftUI data flow" --verbosity full
+
+# JSON output for automations
+sosumi wwdc "SharePlay" --format json
+
+# Limit to top N hits
+sosumi wwdc "SwiftUI" --limit 5
 ```
 
-**Agent Mode:**
+### Session / Year / Stats Helpers
+
 ```bash
-sosumi wwdc-command "SwiftUI" --mode agent
-# Output: Full transcript with metadata for AI synthesis
+# Fetch by canonical ID
+sosumi session wwdc2024-10102 --mode agent --format markdown
+
+# Browse an entire year
+sosumi year 2025 --format json
+
+# Inspect the bundle / transcript counts
+sosumi stats
 ```
 
-### Output Formats
-
-**Markdown (default):**
-```bash
-sosumi wwdc-command "SharePlay" --format markdown
-# Output: Human-readable formatted results
-```
-
-**JSON:**
-```bash
-sosumi wwdc-command "SharePlay" --format json
-# Output: Structured data for API usage
-```
-
-### Limiting Results
+### Custom Bundle / Offline Modes
 
 ```bash
-# Get top 5 results
-sosumi wwdc-command "SwiftUI" --limit 5
-
-# Default limit is 20 results
-sosumi wwdc-command "SwiftUI"
-```
-
-### Using Custom Bundle
-
-```bash
-# Use specific encrypted bundle
-sosumi wwdc-command "SwiftUI" --bundle /path/to/wwdc_bundle.encrypted
+# Point at a custom encrypted bundle (e.g., staging build)
+sosumi wwdc "SwiftUI" --bundle /path/to/wwdc_bundle.encrypted
 ```
 
 ## 📚 Documentation Coverage
 
-**WWDC Sessions:**
-- ✅ 3,000+ sessions (2007-2024)
-- ✅ Full-text searchable SQLite database
-- ✅ Encrypted data bundle (~850MB)
-- ✅ Session metadata and speaker info
-- ✅ Dual output modes for users and agents
+**Apple Developer Documentation (live):**
+- ✅ Swift, SwiftUI, UIKit, AppKit, Combine, RealityKit, SharePlay APIs
+- ✅ JSON + Markdown renders (code listings, availability tables)
+- ✅ Framework index flattening with deduplication
+- ✅ Works from dev builds (requires network)
+
+**WWDC Sessions (local bundle):**
+- ✅ 3,216 sessions (2014-2025) with metadata
+- ✅ 1,355 full transcripts (2018-2025) and word counts
+- ✅ FTS5 SQLite database (~166 MB uncompressed)
+- ✅ Encrypted production bundle (~850 MB) w/ AES-256-GCM
+- ✅ Dual renderers (user vs agent) + Markdown/JSON output
 
 **Search Features:**
-- ✅ SQLite FTS5 full-text search
-- ✅ Multi-factor relevance scoring
-- ✅ BM25 ranking algorithm
-- ✅ Natural language queries
-- ✅ Fast <50ms search performance
+- ✅ SQLite FTS5 full-text search (WWDC)
+- ✅ BM25 + topic/metadata boosting
+- ✅ Apple documentation “docs” search with optional result limits
+- ✅ `doc` endpoint fetch for precise path retrieval
+- ✅ <50 ms WWDC queries (local) + live doc fetch with caching
 
 ## 🔄 Integration with smith-skill
 
@@ -231,11 +230,11 @@ sosumi integrates with the complete Smith Tools ecosystem:
 
 ## 📊 Performance
 
-- **Build size:** ~1.8 MB (includes 850MB encrypted bundle)
-- **Search speed:** <50ms (local SQLite database)
-- **Database queries:** Full-text FTS5 with BM25 ranking
-- **WWDC coverage:** 2007-2024 (3,000+ sessions)
-- **Data size:** 850MB compressed, 3GB+ uncompressed
+- **Build size:** ~1.8 MB binary + 850 MB encrypted WWDC bundle
+- **WWDC search:** <50 ms (local SQLite FTS5)
+- **Apple docs search:** 500‑2000 ms (network), limit via `--limit`/`--type`
+- **Coverage:** WWDC 2014‑2025 (3,216 sessions / 1,355 transcripts)
+- **Data size:** 166 MB SQLite (unencrypted) / 850 MB encrypted bundle
 - **Encryption:** AES-256-GCM for secure distribution
 
 ## 🛠️ Development
@@ -255,16 +254,10 @@ swift build -c release
 sosumi/
 ├── Package.swift         ← Swift package definition
 ├── Sources/
-│   ├── SosumiCore/
-│   │   ├── WWDCDatabase.swift      ← SQLite database & decryption
-│   │   ├── MarkdownFormatter.swift ← User/agent output formatting
-│   │   ├── WWDCSearch.swift        ← Search engine & legacy support
-│   │   ├── SosumiCore.swift        ← Core functionality
-│   │   └── BundleManager.swift     ← Bundle management
-│   ├── SosumiCLI/
-│   │   └── main.swift              ← CLI with --mode and --format flags
-│   └── Skill/
-│       └── SKILL.md                ← Claude Code skill manifest
+│   ├── SosumiDocs/       ← Live Apple documentation client & renderer
+│   ├── SosumiWWDC/       ← SQLite DB, bundle manager, WWDC search engine
+│   ├── SosumiCLI/        ← CLI entry point (ArgumentParser)
+│   └── Skill/            ← Claude skill manifest/instructions
 ├── Scripts/              ← Build and utility scripts
 │   ├── check-security.swift      ← Security validation
 │   ├── compress-data.swift       ← Data compression
@@ -337,12 +330,12 @@ MIT - See [LICENSE](LICENSE) for details
 
 ---
 
-**sosumi v1.1.0** - Complete WWDC Transcript Search System
+**sosumi v1.2.0** – Apple Documentation + WWDC Search
 
-Production-ready dual-mode WWDC search for users and AI agents.
+Production-ready dual-mode tooling for real-time Apple docs and local WWDC transcripts.
 
-**🔑 User Tip:** If WWDC search isn't working after cloning from source, you're using a development build with mock data. Download the production binary instead: [Releases](https://github.com/Smith-Tools/sosumi/releases)
+**🔑 User Tip:** Cloned builds use mock WWDC data; download the production binary for the encrypted bundle. Apple documentation search works in both scenarios (requires network).
 
-*Last updated: November 18, 2025*
-*WWDC Coverage: 2007-2024 (3,000+ sessions)*
-*Features: SQLite database, AES-256-GCM encryption, User/Agent modes, JSON/Markdown output*
+*Last updated: November 19, 2025*  
+*WWDC Coverage: 2014‑2025 (3,216 sessions, 1,355 transcripts)*  
+*Features: Live doc search/fetch, SQLite FTS5 DB, AES-256-GCM bundle, User/Agent modes, Markdown/JSON output*

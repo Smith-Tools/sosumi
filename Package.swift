@@ -14,8 +14,12 @@ let package = Package(
             targets: ["SosumiCLI"]
         ),
         .library(
-            name: "SosumiCore",
-            targets: ["SosumiCore"]
+            name: "SosumiDocs",
+            targets: ["SosumiDocs"]
+        ),
+        .library(
+            name: "SosumiWWDC",
+            targets: ["SosumiWWDC"]
         ),
     ],
     dependencies: [
@@ -27,21 +31,26 @@ let package = Package(
         .executableTarget(
             name: "SosumiCLI",
             dependencies: [
-                "SosumiCore",
+                "SosumiDocs",
+                "SosumiWWDC",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .target(
-            name: "SosumiCore",
+            name: "SosumiDocs",
+            dependencies: []
+        ),
+        .target(
+            name: "SosumiWWDC",
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .testTarget(
-            name: "SosumiCoreTests",
+            name: "SosumiWWDCTests",
             dependencies: [
-                "SosumiCore",
+                "SosumiWWDC",
                 .product(name: "Testing", package: "swift-testing"),
             ]
         ),

@@ -77,97 +77,211 @@ fi
 echo "🔧 Creating working search script..."
 cat > "$LOCAL_SKILL_DIR/scripts/search.sh" << 'EOF'
 #!/bin/bash
+set -u
 
-# Working Sosumi Search Script
-# Prioritizes WWDC (always works) with optional Apple docs fallback
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_DOCS_LIMIT="${SOSUMI_DOCS_LIMIT:-5}"
+DEFAULT_WWDC_LIMIT="${SOSUMI_WWDC_LIMIT:-6}"
+DEFAULT_WWDC_VERBOSITY="${SOSUMI_WWDC_VERBOSITY:-compact}"
 
-QUERY="$1"
-SOSUMI_BIN="/Users/elkraneo/.local/bin/sosumi"
-SKILL_BIN="./scripts/sosumi"
-
-echo "🔍 Sosumi Search: \"$QUERY\""
-echo "=================================================="
-
-# Function to execute WWDC search (always works)
-search_wwdc() {
-    echo "🎥 WWDC Session Results:"
-    echo ""
-
-    if [ -x "$SOSUMI_BIN" ]; then
-        "$SOSUMI_BIN" wwdc "$QUERY"
-    elif [ -x "$SKILL_BIN" ]; then
-        "$SKILL_BIN" wwdc "$QUERY"
-    else
-        echo "❌ Sosumi binary not found"
-        return 1
-    fi
-}
-
-# Function for session lookup
-get_session() {
-    echo "🎯 Session Lookup: $1"
-    echo ""
-
-    if [ -x "$SOSUMI_BIN" ]; then
-        "$SOSUMI_BIN" session "$1"
-    elif [ -x "$SKILL_BIN" ]; then
-        "$SKILL_BIN" session "$1"
-    fi
-}
-
-# Function for year browsing
-get_year() {
-    echo "📅 Sessions from $1:"
-    echo ""
-
-    if [ -x "$SOSUMI_BIN" ]; then
-        "$SOSUMI_BIN" year "$1"
-    elif [ -x "$SKILL_BIN" ]; then
-        "$SKILL_BIN" year "$1"
-    fi
-}
-
-# Route query based on content
-route_query() {
-    local query="$1"
-    local lc_query=$(echo "$query" | tr '[:upper:]' '[:lower:]')
-
-    # Session ID lookup
-    if [[ "$lc_query" =~ (wwdc[0-9]{4}-[0-9]+|tech-talks-[0-9]+) ]]; then
-        get_session "$query"
+find_sosumi() {
+    if command -v sosumi >/dev/null 2>&1; then
+        command -v sosumi
         return
     fi
 
-    # Year-based queries
-    if [[ "$lc_query" =~ [0-9]{4} ]]; then
-        local year=$(echo "$lc_query" | grep -o '[0-9]\{4\}' | head -1)
-        get_year "$year"
+    if [ -x "$SCRIPT_DIR/sosumi" ]; then
+        echo "$SCRIPT_DIR/sosumi"
         return
     fi
 
-    # Default: WWDC search
-    search_wwdc
+    echo ""
 }
 
-# Main execution
-if [ -z "$QUERY" ]; then
-    echo "Usage: $0 \"search query\""
-    echo ""
-    echo "Examples:"
-    echo "  $0 \"SharePlay\""
-    echo "  $0 \"SwiftUI @State\""
-    echo "  $0 \"wwdc2024-10150\""
-    echo "  $0 \"2024\""
-    echo ""
-    echo "Features:"
-    echo "  • Automatic WWDC session search (20,000+ sessions)"
-    echo "  • Session lookup by ID"
-    echo "  • Year-based browsing"
-    echo "  • Local database - always works"
+SOSUMI_BIN="$(find_sosumi)"
+
+if [ -z "$SOSUMI_BIN" ]; then
+    echo "❌ Sosumi binary not found. Re-run deploy-skill.sh."
     exit 1
 fi
 
-route_query "$QUERY"
+run_cli() {
+    "$SOSUMI_BIN" "$@"
+}
+
+run_docs_section() {
+    local query="$1"
+    local limit="$2"
+    local args=(docs "$query")
+    if [ -n "$limit" ]; then
+        args+=(--limit "$limit")
+    fi
+
+    if ! run_cli "${args[@]}"; then
+        echo "⚠️ Apple documentation search failed. Check network connectivity."
+    fi
+}
+
+run_wwdc_section() {
+    local query="$1"
+    local limit="$2"
+    local verbosity="${3:-$DEFAULT_WWDC_VERBOSITY}"
+    local args=(wwdc "$query" --verbosity "$verbosity")
+    if [ -n "$limit" ]; then
+        args+=(--limit "$limit")
+    fi
+
+    if ! run_cli "${args[@]}"; then
+        echo "⚠️ WWDC search failed. Ensure the WWDC database bundle is installed."
+    fi
+}
+
+run_combined_search() {
+    local query="$1"
+    local doc_limit="${2:-$DEFAULT_DOCS_LIMIT}"
+    local wwdc_limit="${3:-$DEFAULT_WWDC_LIMIT}"
+
+    echo "🔎 Sosumi Search: \"$query\""
+    echo "=================================================="
+    echo "📚 Apple Documentation"
+    run_docs_section "$query" "$doc_limit"
+    echo
+    echo "🎥 WWDC Sessions"
+    run_wwdc_section "$query" "$wwdc_limit" "$DEFAULT_WWDC_VERBOSITY"
+    echo
+    echo "💡 Tip: add --type docs or --type wwdc to limit future searches (or set SOSUMI_DOCS_LIMIT / SOSUMI_WWDC_LIMIT)."
+}
+
+run_search_command() {
+    local type="combined"
+    local shared_limit=""
+    local doc_limit=""
+    local wwdc_limit=""
+    local query_parts=()
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --type)
+                type="${2:-combined}"
+                shift 2
+                ;;
+            --limit)
+                shared_limit="${2:-}"
+                shift 2
+                ;;
+            --docs-limit)
+                doc_limit="${2:-}"
+                shift 2
+                ;;
+            --wwdc-limit)
+                wwdc_limit="${2:-}"
+                shift 2
+                ;;
+            --help|-h)
+                show_usage
+                exit 0
+                ;;
+            *)
+                query_parts+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    local query="${query_parts[*]}"
+
+    if [ -z "$query" ]; then
+        echo "❌ Missing search query."
+        exit 1
+    fi
+
+    local final_doc_limit="${doc_limit:-${shared_limit:-$DEFAULT_DOCS_LIMIT}}"
+    local final_wwdc_limit="${wwdc_limit:-${shared_limit:-$DEFAULT_WWDC_LIMIT}}"
+
+    case "$type" in
+        docs|documentation)
+            run_docs_section "$query" "$final_doc_limit"
+            ;;
+        wwdc|sessions)
+            run_wwdc_section "$query" "$final_wwdc_limit" "$DEFAULT_WWDC_VERBOSITY"
+            ;;
+        combined|all|both|search|auto)
+            run_combined_search "$query" "$final_doc_limit" "$final_wwdc_limit"
+            ;;
+        *)
+            echo "⚠️ Unknown search type \"$type\". Defaulting to combined."
+            run_combined_search "$query" "$final_doc_limit" "$final_wwdc_limit"
+            ;;
+    esac
+}
+
+show_usage() {
+    cat <<'USAGE'
+Usage:
+  search.sh search <query> [--type docs|wwdc|combined] [--limit N]
+  search.sh docs <query> [--limit N]
+  search.sh doc <path> [--format markdown|json]
+  search.sh wwdc <query> [--limit N] [--verbosity compact|detailed|full]
+  search.sh session <session-id>
+  search.sh year <year>
+  search.sh stats
+  search.sh test
+  search.sh update
+  search.sh <query>                # Combined search (docs + WWDC) using defaults
+
+Environment overrides:
+  SOSUMI_DOCS_LIMIT       Default docs results (default: 5)
+  SOSUMI_WWDC_LIMIT       Default WWDC results (default: 6)
+  SOSUMI_WWDC_VERBOSITY   WWDC verbosity (default: compact)
+USAGE
+}
+
+COMMAND="${1:-}"
+
+if [ -z "$COMMAND" ]; then
+    show_usage
+    exit 1
+fi
+
+case "$COMMAND" in
+    search)
+        shift
+        run_search_command "$@"
+        ;;
+    docs)
+        shift
+        if [ $# -eq 0 ]; then
+            echo "❌ Missing documentation search query."
+            exit 1
+        fi
+        run_cli docs "$@"
+        ;;
+    doc|fetch)
+        shift
+        if [ $# -eq 0 ]; then
+            echo "❌ Missing documentation path."
+            exit 1
+        fi
+        run_cli doc "$@"
+        ;;
+    wwdc|session|year|stats|test|update)
+        run_cli "$@"
+        ;;
+    combined)
+        shift
+        if [ $# -eq 0 ]; then
+            echo "❌ Missing search query."
+            exit 1
+        fi
+        run_combined_search "$*"
+        ;;
+    -h|--help|help)
+        show_usage
+        ;;
+    *)
+        run_combined_search "$*"
+        ;;
+esac
 EOF
 chmod +x "$LOCAL_SKILL_DIR/scripts/search.sh"
 

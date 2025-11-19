@@ -64,23 +64,25 @@ Sosumi is automatically invoked when queries contain any of:
 ```bash
 /skill sosumi search "your query"
 /skill sosumi wwdc "topic"
-/skill sosumi fetch framework/api
+/skill sosumi doc framework/api
 ```
 
 ## Quick Start
 
 ```bash
-# Search for any Apple development topic
+# Combined docs + WWDC search (default)
 /skill sosumi search "SwiftUI animations"
 
-# Get specific documentation
-/skill sosumi fetch swiftui/view
+# Documentation-only search
+/skill sosumi search "URLSession metrics" --type docs
+/skill sosumi docs "Combine scheduler" --limit 3
+
+# Fetch a specific documentation page
+/skill sosumi doc swiftui/view
+/skill sosumi doc groupactivities/drawing_content_in_a_group_session --format markdown
 
 # Search WWDC content
 /skill sosumi wwdc "GroupActivities"
-
-# Search for SharePlay/Group Activities specifically
-/skill sosumi shareplay
 
 # Search for RealityKit/Timeline content
 /skill sosumi search "Reality Composer Pro timeline animation"
@@ -138,44 +140,48 @@ Sosumi is automatically invoked when queries contain any of:
 
 #### Basic Search
 ```bash
-/skill sosumi search <query> [--type <type>] [--limit <number>]
+/skill sosumi search <query> [--type <docs|wwdc|combined>] [--limit <number>]
 ```
 
 **Examples:**
 ```bash
-# Search SwiftUI animations
+# Combined search (docs + WWDC)
 /skill sosumi search "SwiftUI animations" --limit 5
 
-# Search only documentation
-/skill sosumi search "URLSession" --type documentation
+# Documentation-only search
+/skill sosumi search "URLSession" --type docs
 
-# Search WWDC sessions
+# WWDC sessions only
 /skill sosumi search "Combine framework" --type wwdc
 ```
 
-#### SharePlay/Group Activities Search
+The `search` command defaults to a **combined view** (Apple docs + WWDC). Use `--type docs` or `--type wwdc` to scope. `--limit` controls both sections; override one side with `--docs-limit` or `--wwdc-limit`.
+
+#### Documentation Search (`docs`)
 ```bash
-/skill sosumi shareplay
+/skill sosumi docs <query> [--limit <number>]
 ```
 
-Specialized search for Group Activities, SharePlay, and related frameworks.
+Runs the live Apple documentation search directly (same as `sosumi docs`). Use when you only need API references without WWDC output.
 
 #### Documentation Fetch
 ```bash
-/skill sosumi fetch <path> [--format <json|markdown>]
+/skill sosumi doc <path> [--format <json|markdown>]
 ```
 
 **Examples:**
 ```bash
 # Get SwiftUI View documentation
-/skill sosumi fetch swiftui/view
+/skill sosumi doc swiftui/view
 
 # Get Swift Language Guide
-/skill sosumi fetch swift/language-guide
+/skill sosumi doc swift/language-guide
 
 # Get in JSON format
-/skill sosumi fetch combine/publisher --format json
+/skill sosumi doc combine/publisher --format json
 ```
+
+> `fetch` remains an alias for `doc` if older instructions/scripts still reference it.
 
 #### WWDC Content
 ```bash
@@ -248,23 +254,23 @@ Clear cache or show cache usage statistics.
 
 ### Finding SharePlay/Group Activities Information
 ```bash
-# Comprehensive search
-/skill sosumi shareplay
+# Combined docs + WWDC search
+/skill sosumi search "SharePlay" --limit 5
 
 # Specific framework search
-/skill sosumi search "GroupActivities framework" --type documentation
+/skill sosumi search "GroupActivities framework" --type docs
 
 # WWDC sessions on the topic
 /skill sosumi wwdc "SharePlay activities"
 
 # Get specific API documentation
-/skill sosumi fetch groupactivities/groupactivity
+/skill sosumi doc groupactivities/groupactivity
 ```
 
 ### Learning SwiftUI
 ```bash
 # Get SwiftUI overview
-/skill sosumi fetch swiftui
+/skill sosumi doc swiftui
 
 # Search specific SwiftUI topics
 /skill sosumi search "SwiftUI navigation stack" --limit 3
@@ -291,7 +297,7 @@ Clear cache or show cache usage statistics.
 /skill sosumi wwdc "RealityComposer Pro timeline"
 
 # Get AnimationResource documentation
-/skill sosumi fetch realitykit/animationresource
+/skill sosumi doc realitykit/animationresource
 
 # Search for timeline playback patterns
 /skill sosumi search "Reality Composer Pro timeline animation playback"
@@ -313,7 +319,7 @@ The sosumi skill is optimized for performance with:
 ### Typical Performance
 - **Local search**: 1-50ms (cached content)
 - **API search**: 500-2000ms (live content)
-- **Documentation fetch**: 200-1000ms
+- **Documentation fetch (`doc`)**: 200-1000ms
 - **WWDC transcript**: 100-500ms
 
 ## Data Sources

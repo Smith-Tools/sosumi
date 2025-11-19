@@ -1,17 +1,17 @@
 import Testing
 import Foundation
 import CryptoKit
-@testable import SosumiCore
+@testable import SosumiWWDC
 
-@Suite("SosumiCore Tests")
-struct SosumiCoreTests {
+@Suite("SosumiWWDC Tests")
+struct SosumiWWDCTests {
 
     // MARK: - Core Tests
 
-    @Test("SosumiCore initialization")
-    func testSosumiCoreInitialization() {
-        _ = SosumiCore()
-        // Test passes if SosumiCore can be instantiated successfully
+    @Test("SosumiWWDC initialization")
+    func testSosumiWWDCInitialization() {
+        _ = SosumiWWDC()
+        // Test passes if SosumiWWDC can be instantiated successfully
         #expect(true)
     }
 

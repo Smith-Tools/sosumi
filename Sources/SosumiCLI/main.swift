@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
-import SosumiCore
+import SosumiDocs
+import SosumiWWDC
 
 @main
 struct SosumiCLI: AsyncParsableCommand {
@@ -169,7 +170,7 @@ struct SosumiCLI: AsyncParsableCommand {
                 // Fallback to legacy search with error handling
                 print("⚠️  Database search failed, trying legacy search: \(error)")
 
-                let results = SosumiCore.searchWWDC(query: query)
+                let results = SosumiWWDC.searchWWDC(query: query)
 
                 if results.isEmpty {
                     print("❌ No WWDC sessions found for: \(query)")
@@ -178,7 +179,7 @@ struct SosumiCLI: AsyncParsableCommand {
                 }
 
                 if detailed || finalMode == .agent {
-                    let formattedResults = SosumiCore.formatWWDCResults(results, query: query)
+                    let formattedResults = SosumiWWDC.formatWWDCResults(results, query: query)
                     print(formattedResults)
                 } else {
                     print("📺 Found \(results.count) sessions:")
@@ -423,7 +424,7 @@ struct SosumiCLI: AsyncParsableCommand {
                                 print("\n🔍 Testing search queries...")
 
                                 for query in testQueries {
-                                    let results = SosumiCore.searchWWDC(query: query)
+                                    let results = SosumiWWDC.searchWWDC(query: query)
                                     print("  '\(query)': \(results.count) results")
                                 }
 

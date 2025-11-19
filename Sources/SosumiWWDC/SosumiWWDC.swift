@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SosumiCore {
+public struct SosumiWWDC {
     public static let version = "1.2.0"  // Production-ready with enhanced search and comprehensive testing
 
     public init() {}

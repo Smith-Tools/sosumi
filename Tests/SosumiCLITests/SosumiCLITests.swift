@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 @testable import SosumiCLI
-@testable import SosumiCore
+@testable import SosumiWWDC
 
 @Suite("SosumiCLI Tests")
 struct SosumiCLITests {
