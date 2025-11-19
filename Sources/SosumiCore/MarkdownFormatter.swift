@@ -466,18 +466,11 @@ public class MarkdownFormatter {
     }
 
     private static func formatDuration(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.allowedUnits = [.hour, .minute, .second]
+        formatter.collapsesLargestUnit = true
 
-        let hours = minutes / 60
-        let mins = minutes % 60
-
-        if hours > 0 {
-            return "\(hours)h \(mins)m"
-        } else if mins > 0 {
-            return "\(mins)m \(remainingSeconds)s"
-        } else {
-            return "\(remainingSeconds)s"
-        }
+        return formatter.string(from: TimeInterval(seconds)) ?? "\(seconds)s"
     }
 }
