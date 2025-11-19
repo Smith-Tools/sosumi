@@ -8,6 +8,7 @@ public class AppleDocumentationClient {
 
     private let session: URLSession
     private let baseURL = "https://developer.apple.com/tutorials/data"
+    private let documentationBaseURL = "https://developer.apple.com"
     private let userAgentPool: [String]
 
     // MARK: - Constants
@@ -64,8 +65,21 @@ public class AppleDocumentationClient {
     /// Fetches framework documentation index
     public func fetchFrameworkIndex(framework: String) async throws -> [FrameworkIndex] {
         let url = "\(baseURL)/index/\(framework)"
-        let response: FrameworkIndexResponse = try await performRequest(url: url)
-        return response.items ?? []
+        let response: FrameworkIndexTreeResponse = try await performRequest(url: url)
+
+        let interfaceNodes = response.interfaceLanguages.values.flatMap { $0 }
+        let flattened = interfaceNodes.flatMap { flattenFrameworkNodes($0) }
+
+        // Deduplicate by URL while preserving order
+        var seen = Set<String>()
+        var deduplicated: [FrameworkIndex] = []
+        for entry in flattened {
+            if seen.insert(entry.url).inserted {
+                deduplicated.append(entry)
+            }
+        }
+
+        return deduplicated
     }
 
     /// Fetches documentation for a specific path
@@ -163,18 +177,23 @@ public class AppleDocumentationClient {
 
     /// Normalizes a documentation path (removes .json, ensures proper format)
     private func normalizePath(_ path: String) -> String {
-        var normalized = path
-            .replacingOccurrences(of: ".json", with: "")
-            .replacingOccurrences(of: "/documentation/", with: "")
-            .trimmingCharacters(in: .init(charactersIn: "/"))
+        var normalized = path.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Handle special cases
-        if normalized.hasPrefix("developer.apple.com/") {
-            normalized = String(normalized.dropFirst("developer.apple.com/".count))
+        if normalized.hasPrefix("http") {
+            if let range = normalized.range(of: "developer.apple.com/") {
+                normalized = String(normalized[range.upperBound...])
+            }
         }
 
         if normalized.hasPrefix("tutorials/data/") {
             normalized = String(normalized.dropFirst("tutorials/data/".count))
+        }
+
+        normalized = normalized.replacingOccurrences(of: ".json", with: "")
+        normalized = normalized.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        if !normalized.hasPrefix("documentation/") {
+            normalized = "documentation/\(normalized)"
         }
 
         return normalized
@@ -186,15 +205,69 @@ public class AppleDocumentationClient {
         return components.last?.replacingOccurrences(of: ".json", with: "")
     }
 
+    /// Flattens framework index nodes into searchable entries
+    private func flattenFrameworkNodes(_ node: FrameworkIndexNode) -> [FrameworkIndex] {
+        var results: [FrameworkIndex] = []
+
+        if let path = node.path,
+           let title = node.title,
+           node.type?.lowercased() != "groupmarker" {
+            let normalizedURL = normalizeDocumentationURL(path)
+            let entry = FrameworkIndex(
+                name: title,
+                url: normalizedURL,
+                kind: node.type ?? "topic",
+                role: node.role ?? node.type ?? "topic",
+                abstract: node.abstract
+            )
+            results.append(entry)
+        }
+
+        if let children = node.children {
+            for child in children {
+                results.append(contentsOf: flattenFrameworkNodes(child))
+            }
+        }
+
+        return results
+    }
+
+    /// Normalizes documentation URLs to include the developer.apple.com host
+    private func normalizeDocumentationURL(_ path: String) -> String {
+        if path.hasPrefix("http") {
+            return path
+        }
+
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedPath.hasPrefix("/") {
+            return "\(documentationBaseURL)\(trimmedPath)"
+        } else if trimmedPath.hasPrefix("documentation/") {
+            return "\(documentationBaseURL)/\(trimmedPath)"
+        } else {
+            return "\(documentationBaseURL)/documentation/\(trimmedPath)"
+        }
+    }
+
     // MARK: - Response Types
 
     /// Framework index response wrapper
-    private struct FrameworkIndexResponse: Codable {
-        let items: [FrameworkIndex]?
-        let metadata: ResponseMetadata?
+    private struct FrameworkIndexTreeResponse: Codable {
+        let interfaceLanguages: [String: [FrameworkIndexNode]]
     }
 
-    /// Response metadata
+    /// Tree node for framework index entries
+    private struct FrameworkIndexNode: Codable {
+        let path: String?
+        let title: String?
+        let type: String?
+        let role: String?
+        let abstract: [TextFragment]?
+        let external: Bool?
+        let children: [FrameworkIndexNode]?
+    }
+
+    /// Response metadata (retained for other endpoints)
     private struct ResponseMetadata: Codable {
         let version: String?
         let generated: String?

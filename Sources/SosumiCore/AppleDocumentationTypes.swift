@@ -9,7 +9,7 @@ import Foundation
 public struct TextFragment: Codable {
     public let type: String
     public let text: String?
-    public let code: String?
+    public let code: CodeValue?
     public let inlineCode: String?
     public let emphasis: [TextFragment]?
     public let strong: [TextFragment]?
@@ -32,7 +32,7 @@ public struct TextFragment: Codable {
     public init(
         type: String,
         text: String? = nil,
-        code: String? = nil,
+        code: CodeValue? = nil,
         inlineCode: String? = nil,
         emphasis: [TextFragment]? = nil,
         strong: [TextFragment]? = nil,
@@ -76,6 +76,49 @@ public struct TextFragment: Codable {
     }
 }
 
+/// Represents source code payloads that may be single strings or arrays
+public enum CodeValue: Codable {
+    case string(String)
+    case lines([String])
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let stringValue = try? container.decode(String.self) {
+            self = .string(stringValue)
+        } else if let linesValue = try? container.decode([String].self) {
+            self = .lines(linesValue)
+        } else {
+            throw DecodingError.typeMismatch(
+                String.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected string or array of strings for code value."
+                )
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .lines(let lines):
+            try container.encode(lines)
+        }
+    }
+
+    /// Returns the code payload as a single string joined by newlines.
+    public var text: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .lines(let lines):
+            return lines.joined(separator: "\n")
+        }
+    }
+}
+
 /// Represents a parameter in method signatures
 public struct Parameter: Codable {
     public let name: String
@@ -98,13 +141,35 @@ public struct ContentMetadata: Codable {
 
 /// Represents variant information for different platforms/technologies
 public struct Variant: Codable {
-    public let traits: [String]
+    public let traits: [VariantTrait]
     public let paths: [String]
 
-    public init(traits: [String], paths: [String]) {
+    public init(traits: [VariantTrait], paths: [String]) {
         self.traits = traits
         self.paths = paths
     }
+}
+
+/// Represents an individual variant trait (e.g., interface language)
+public struct VariantTrait: Codable {
+    public let values: [String: String]
+
+    public init(values: [String: String]) {
+        self.values = values
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.values = try container.decode([String: String].self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(values)
+    }
+
+    public var interfaceLanguage: String? { values["interfaceLanguage"] }
+    public var platform: String? { values["platform"] }
 }
 
 // MARK: - Content Item Types
@@ -263,12 +328,25 @@ public struct AvailabilityInfo: Codable {
     }
 }
 
+/// Metadata entry for platform availability
+public struct DocumentationPlatform: Codable {
+    public let name: String?
+    public let introducedAt: String?
+    public let current: String?
+
+    public init(name: String? = nil, introducedAt: String? = nil, current: String? = nil) {
+        self.name = name
+        self.introducedAt = introducedAt
+        self.current = current
+    }
+}
+
 /// Documentation metadata
 public struct DocumentationMetadata: Codable {
     public let color: String?
     public let role: String?
     public let roleHeading: String?
-    public let platforms: [String]?
+    public let platforms: [DocumentationPlatform]?
     public let title: String?
     public let symbolVariant: String?
 
@@ -276,7 +354,7 @@ public struct DocumentationMetadata: Codable {
         color: String? = nil,
         role: String? = nil,
         roleHeading: String? = nil,
-        platforms: [String]? = nil,
+        platforms: [DocumentationPlatform]? = nil,
         title: String? = nil,
         symbolVariant: String? = nil
     ) {
@@ -301,7 +379,7 @@ public struct AppleDocumentation: Codable {
     public let relationshipsSections: [RelationshipsSection]?
     public let seeAlsoSections: [SeeAlsoSection]?
     public let variants: [Variant]?
-    public let identifier: String?
+    public let identifier: DocumentationIdentifier?
     public let schemaVersion: VersionInfo?
     public let kind: String?
     public let url: String?
@@ -315,7 +393,7 @@ public struct AppleDocumentation: Codable {
         relationshipsSections: [RelationshipsSection]? = nil,
         seeAlsoSections: [SeeAlsoSection]? = nil,
         variants: [Variant]? = nil,
-        identifier: String? = nil,
+        identifier: DocumentationIdentifier? = nil,
         schemaVersion: VersionInfo? = nil,
         kind: String? = nil,
         url: String? = nil
@@ -332,6 +410,17 @@ public struct AppleDocumentation: Codable {
         self.schemaVersion = schemaVersion
         self.kind = kind
         self.url = url
+    }
+}
+
+/// Identifier information for documentation nodes
+public struct DocumentationIdentifier: Codable {
+    public let url: String?
+    public let interfaceLanguage: String?
+
+    public init(url: String? = nil, interfaceLanguage: String? = nil) {
+        self.url = url
+        self.interfaceLanguage = interfaceLanguage
     }
 }
 

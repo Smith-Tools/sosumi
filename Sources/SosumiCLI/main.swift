@@ -3,7 +3,7 @@ import Foundation
 import SosumiCore
 
 @main
-struct SosumiCLI: ParsableCommand {
+struct SosumiCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "sosumi",
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
@@ -20,7 +20,7 @@ struct SosumiCLI: ParsableCommand {
         ]
     )
 
-    struct DocsCommand: ParsableCommand {
+    struct DocsCommand: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "docs",
             abstract: "Search Apple Developer documentation"
@@ -35,7 +35,7 @@ struct SosumiCLI: ParsableCommand {
         @Option(name: .long, help: "Content type filter")
         var type: String?
 
-        func run() async throws {
+        mutating func run() async throws {
             print("🔍 Searching Apple documentation for: \(query)")
 
             let client = AppleDocumentationClient()
@@ -51,13 +51,36 @@ struct SosumiCLI: ParsableCommand {
                     return
                 }
 
+                // Apply optional filters and limits prior to rendering
+                let filteredResults: [DocumentationSearchResult]
+                if let typeFilter = type?.lowercased(), !typeFilter.isEmpty {
+                    filteredResults = searchResponse.results.filter {
+                        $0.type.lowercased().contains(typeFilter)
+                    }
+                } else {
+                    filteredResults = searchResponse.results
+                }
+
+                let limitedResults: [DocumentationSearchResult]
+                if let limit = limit, limit < filteredResults.count {
+                    limitedResults = Array(filteredResults.prefix(limit))
+                } else {
+                    limitedResults = filteredResults
+                }
+
+                let renderedResponse = DocumentationSearchResponse(
+                    query: searchResponse.query,
+                    results: limitedResults,
+                    metadata: searchResponse.metadata,
+                    totalFound: filteredResults.count
+                )
+
                 // Render search results to markdown
-                let markdown = renderer.renderSearchResults(searchResponse)
+                let markdown = renderer.renderSearchResults(renderedResponse)
                 print(markdown)
 
-                // Apply limit if specified
-                if let limit = limit, limit < searchResponse.results.count {
-                    print("📊 Showing top \(limit) of \(searchResponse.totalFound) results")
+                if let limit = limit, limit < filteredResults.count {
+                    print("📊 Showing top \(limit) of \(filteredResults.count) results")
                 }
 
             } catch {
@@ -447,7 +470,7 @@ struct SosumiCLI: ParsableCommand {
         }
     }
 
-    struct AppleDocCommand: ParsableCommand {
+    struct AppleDocCommand: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "doc",
             abstract: "Fetch specific Apple documentation page"
@@ -462,7 +485,7 @@ struct SosumiCLI: ParsableCommand {
         @Option(name: .long, help: "Save to file instead of stdout")
         var output: String?
 
-        func run() async throws {
+        mutating func run() async throws {
             print("📚 Fetching Apple documentation: \(path)")
 
             let client = AppleDocumentationClient()

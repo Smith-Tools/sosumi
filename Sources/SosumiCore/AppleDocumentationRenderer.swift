@@ -60,9 +60,11 @@ public class AppleDocumentationRenderer {
         }
 
         // Add parameters section (from metadata)
-        if let metadata = documentation.metadata?.platforms, !metadata.isEmpty {
+        if let platforms = documentation.metadata?.platforms, !platforms.isEmpty {
             markdown += "\n## Availability\n"
-            markdown += metadata.map { "- \($0)" }.joined(separator: "\n")
+            for platform in platforms {
+                markdown += "- \(formatPlatform(platform))\n"
+            }
             markdown += "\n"
         }
 
@@ -150,7 +152,7 @@ public class AppleDocumentationRenderer {
         if let platforms = documentation.metadata?.platforms, !platforms.isEmpty {
             frontmatter += "platforms:\n"
             for platform in platforms {
-                frontmatter += "  - \(escapeYAML(platform))\n"
+                frontmatter += "  - \(escapeYAML(formatPlatform(platform)))\n"
             }
         }
 
@@ -159,7 +161,12 @@ public class AppleDocumentationRenderer {
         }
 
         if let identifier = documentation.identifier {
-            frontmatter += "identifier: \(escapeYAML(identifier))\n"
+            if let url = identifier.url {
+                frontmatter += "identifier_url: \(escapeYAML(url))\n"
+            }
+            if let language = identifier.interfaceLanguage {
+                frontmatter += "identifier_interface_language: \(escapeYAML(language))\n"
+            }
         }
 
         frontmatter += "---\n\n"
@@ -169,6 +176,32 @@ public class AppleDocumentationRenderer {
     /// Renders text fragments to Markdown
     private func renderTextFragments(_ fragments: [TextFragment], level: Int = 0) -> String {
         return fragments.map { renderTextFragment($0, level: level) }.joined()
+    }
+
+    /// Formats platform metadata into human-readable text
+    private func formatPlatform(_ platform: DocumentationPlatform) -> String {
+        var components: [String] = []
+        if let name = platform.name {
+            components.append(name)
+        }
+
+        var details: [String] = []
+        if let introduced = platform.introducedAt {
+            details.append("introduced \(introduced)")
+        }
+        if let current = platform.current {
+            details.append("current \(current)")
+        }
+
+        if !details.isEmpty {
+            components.append("(\(details.joined(separator: ", ")))")
+        }
+
+        if components.isEmpty {
+            return "Unknown Platform"
+        }
+
+        return components.joined(separator: " ")
     }
 
     /// Renders a single text fragment
@@ -188,8 +221,9 @@ public class AppleDocumentationRenderer {
             }
 
         case "code":
-            if let code = fragment.code {
-                if fragment.code?.contains("\n") == true {
+            if let codeValue = fragment.code {
+                let code = codeValue.text
+                if code.contains("\n") {
                     output += "```swift\n\(code)\n```\n\n"
                 } else {
                     output += "`\(code)`"
@@ -396,9 +430,10 @@ public class AppleDocumentationRenderer {
     /// Gets a filename for documentation based on title and identifier
     public func getDocumentationFilename(_ documentation: AppleDocumentation) -> String {
         let title = documentation.metadata?.title ?? "untitled"
-        let identifier = documentation.identifier ?? "unknown"
+        let identifierComponent = documentation.identifier?.url ?? documentation.identifier?.interfaceLanguage ?? "unknown"
         let sanitizedTitle = sanitizeFilename(title)
-        return "\(sanitizedTitle)_\(identifier).md"
+        let sanitizedIdentifier = sanitizeFilename(identifierComponent)
+        return "\(sanitizedTitle)_\(sanitizedIdentifier).md"
     }
 }
 
