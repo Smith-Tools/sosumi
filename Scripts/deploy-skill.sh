@@ -62,6 +62,17 @@ echo "📚 Installing documentation..."
 cd "$SOSUMI_SOURCE"
 cp README.md "$LOCAL_SKILL_DIR/reference.md" 2>/dev/null || echo "README.md not found"
 
+# Install database to skill data directory
+echo "🗄️  Installing database to skill..."
+if [ -f "$DB_DIR/wwdc.db" ]; then
+    cp "$DB_DIR/wwdc.db" "$LOCAL_SKILL_DIR/data/"
+    echo "✅ Database copied to skill data directory"
+    echo "   • Database size: $(du -h "$LOCAL_SKILL_DIR/data/wwdc.db" | cut -f1)"
+else
+    echo "⚠️  Database not found at $DB_DIR/wwdc.db"
+    echo "   WWDC search functionality will not work until database is installed"
+fi
+
 # Create working search script
 echo "🔧 Creating working search script..."
 cat > "$LOCAL_SKILL_DIR/scripts/search.sh" << 'EOF'
@@ -278,11 +289,11 @@ if command -v sosumi >/dev/null 2>&1; then
     echo "✅ CLI tool accessible"
 
     # Test database connection
-    if sosumi wwdc-stats-command >/dev/null 2>&1; then
+    if sosumi stats >/dev/null 2>&1; then
         echo "✅ Database connection working"
 
         # Get actual stats
-        STATS=$(sosumi wwdc-stats-command)
+        STATS=$(sosumi stats)
         SESSION_COUNT=$(echo "$STATS" | grep "Total Sessions" | awk '{print $3}')
         TRANSCRIPT_COUNT=$(echo "$STATS" | grep "Sessions with Transcripts" | awk '{print $4}')
 
