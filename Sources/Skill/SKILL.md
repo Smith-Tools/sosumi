@@ -93,6 +93,19 @@ Sosumi is automatically invoked when queries contain any of:
 /skill sosumi index
 ```
 
+### Platform Naming Reference
+
+| Term you may see | How Sosumi interprets it | Notes |
+|------------------|-------------------------|-------|
+| `visionOS 26`    | Latest visionOS release announced at WWDC 2025 (session IDs `wwdc2025-3xx`) | **Do not** rewrite it as “visionOS 2.0”. Use the wording the user provides. |
+| `iOS 26` / `iPadOS 26` | 2025 platform releases | Treat as current versions (session IDs `wwdc2025-1xxx`). |
+| `macOS 26` / `Tahoe` | Latest macOS release | Accept codename or version number interchangeably. |
+| `watchOS 26` | Latest Apple Watch release | Use as provided. |
+| `tvOS 26` | Latest Apple TV release | Use as provided. |
+| `wwdcYYYY-#####` | Canonical content ID (e.g., `wwdc2024-10150`) | Ask the user for the full ID if they only provide the numeric part. |
+
+> **Agent guidance:** When a user references “visionOS 26” or similar terms from WWDC 2025, treat them literally—run `sosumi wwdc "visionOS 26" ...` rather than “correcting” the terminology.
+
 ## Features
 
 ### 📖 Documentation Access
