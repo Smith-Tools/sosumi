@@ -5,6 +5,7 @@ import SosumiCore
 @main
 struct SosumiCLI: ParsableCommand {
     static let configuration = CommandConfiguration(
+        commandName: "sosumi",
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
         version: "1.2.0",
         subcommands: [
