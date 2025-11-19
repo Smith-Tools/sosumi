@@ -195,9 +195,9 @@ chmod +x "$LOCAL_SKILL_DIR/scripts/setup-database.sh"
 cat > "$LOCAL_SKILL_DIR/SKILL.md" << 'EOF'
 ---
 name: sosumi
-description: Search Apple documentation, WWDC sessions, Swift frameworks. Automatic intelligent routing. Trigger on: SwiftUI, Combine, Core Data, SharePlay, @State, async/await, Apple APIs, iOS/macOS development questions.
+description: Search Apple documentation and WWDC sessions. Use search.sh with intelligent routing: automatically detects session IDs, years, and routes to appropriate search. WWDC search always works, Apple docs requires network.
 allowed-tools: [Bash]
-executables: ["/Users/elkraneo/.claude/skills/sosumi/scripts/search.sh", "/Users/elkraneo/.claude/skills/sosumi/scripts/sosumi", "/Users/elkraneo/.local/bin/sosumi"]
+executables: ["./scripts/search.sh"]
 ---
 
 # Apple Documentation & WWDC Search
