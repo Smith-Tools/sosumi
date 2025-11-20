@@ -55,3 +55,4 @@ decryption.key
 # IDE Local Settings with secrets
 .env.local
 .env.*.localResources/DATA/wwdc.db
+.internal/
