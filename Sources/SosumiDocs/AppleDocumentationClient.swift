@@ -161,6 +161,63 @@ public class AppleDocumentationClient {
         return results.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    /// Searches HIG (Human Interface Guidelines) matching a query
+    public func searchHumanInterfaceGuidelines(query: String) async throws -> [DocumentationSearchResult] {
+        var results: [DocumentationSearchResult] = []
+
+        do {
+            // Extract HIG path from URL if provided
+            var searchQuery = query
+            if let higPath = extractHIGPath(from: query) {
+                // If it's a HIG URL, search for the last path component
+                searchQuery = higPath.split(separator: "/").last.map(String.init) ?? higPath
+            }
+
+            let toc = try await fetchHIGTableOfContents()
+
+            // Flatten the TOC structure and search for matches
+            if let items = toc.interfaceLanguages?.swift {
+                let flattenedItems = flattenHIGTocItems(items)
+                let matchingItems = flattenedItems.filter { item in
+                    (item.title?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
+                    (item.path?.localizedCaseInsensitiveContains(searchQuery) ?? false)
+                }
+
+                let searchResults = matchingItems.compactMap { item -> DocumentationSearchResult? in
+                    guard let path = item.path else { return nil }
+                    let title = item.title ?? path
+                    let url = "\(documentationBaseURL)\(path)"
+                    return DocumentationSearchResult(
+                        title: title,
+                        url: url,
+                        type: "Human Interface Guideline",
+                        description: nil,
+                        identifier: extractIdentifier(from: path)
+                    )
+                }
+
+                results.append(contentsOf: searchResults)
+            }
+        } catch {
+            // If HIG search fails, return empty results
+            return []
+        }
+
+        return results.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    /// Flattens HIG TOC items into a searchable list
+    private func flattenHIGTocItems(_ items: [HIGTocItem]) -> [HIGTocItem] {
+        var flattened: [HIGTocItem] = []
+        for item in items {
+            flattened.append(item)
+            if let children = item.children {
+                flattened.append(contentsOf: flattenHIGTocItems(children))
+            }
+        }
+        return flattened
+    }
+
     // MARK: - Private Methods
 
     /// Performs a network request and decodes the response
@@ -405,6 +462,14 @@ extension AppleDocumentationClient {
         let docResults = try await searchDocumentation(query: query)
         allResults.append(contentsOf: docResults)
         searchMetadata["documentation"] = docResults.count
+
+        // HIG search
+        let higResults = try await searchHumanInterfaceGuidelines(query: query)
+        let newHIGResults = higResults.filter { result in
+            !allResults.contains { $0.url == result.url }
+        }
+        allResults.append(contentsOf: newHIGResults)
+        searchMetadata["human_interface_guidelines"] = newHIGResults.count
 
         // Framework-specific searches
         let queryWords = query.components(separatedBy: .whitespaces)
