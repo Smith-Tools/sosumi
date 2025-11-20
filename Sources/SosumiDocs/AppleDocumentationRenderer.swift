@@ -248,10 +248,13 @@ public class AppleDocumentationRenderer {
             }
 
         case "link":
-            if let text = fragment.text, let url = fragment.url {
-                output += "[\(text)](\(url))"
-            } else if let url = fragment.url {
-                output += "<\(url)>"
+            if let url = fragment.url {
+                let normalizedURL = normalizedURLString(url)
+                if let text = fragment.text {
+                    output += "[\(text)](\(normalizedURL))"
+                } else {
+                    output += "<\(normalizedURL)>"
+                }
             }
 
         case "image":
@@ -329,7 +332,7 @@ public class AppleDocumentationRenderer {
         var markdown = "## \(section.title)\n\n"
 
         for identifier in section.identifiers {
-            let url = "\(baseURL)/\(identifier)"
+            let url = normalizedURLString(identifier, defaultPathPrefix: baseURL)
             markdown += "- [\(identifier)](\(url))\n"
         }
 
@@ -351,9 +354,9 @@ public class AppleDocumentationRenderer {
             for destination in destinations {
                 if let title = destination.title {
                     if let url = destination.url {
-                        markdown += "- [\(title)](\(url))\n"
+                        markdown += "- [\(title)](\(normalizedURLString(url)))\n"
                     } else if let identifier = destination.identifier {
-                        let url = "\(baseURL)/\(identifier)"
+                        let url = normalizedURLString(identifier, defaultPathPrefix: baseURL)
                         markdown += "- [\(title)](\(url))\n"
                     }
                 }
@@ -434,6 +437,16 @@ public class AppleDocumentationRenderer {
         let sanitizedTitle = sanitizeFilename(title)
         let sanitizedIdentifier = sanitizeFilename(identifierComponent)
         return "\(sanitizedTitle)_\(sanitizedIdentifier).md"
+    }
+
+    private func normalizedURLString(_ url: String, defaultPathPrefix: String? = nil) -> String {
+        if let normalized = DocURLUtilities.toWebURL(url) {
+            return normalized
+        }
+        if let prefix = defaultPathPrefix {
+            return "\(prefix)/\(url)"
+        }
+        return url
     }
 }
 

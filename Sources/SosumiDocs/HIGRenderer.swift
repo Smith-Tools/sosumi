@@ -225,7 +225,8 @@ public struct HIGRenderer {
                 if let identifier = node.identifier {
                     builder += renderReferenceInline(identifier: identifier, references: references)
                 } else if let url = node.url, let text = node.text {
-                    builder += "[\(text)](\(url))"
+                    let normalized = normalizedURL(url)
+                    builder += "[\(text)](\(normalized))"
                 } else {
                     builder += node.text ?? ""
                 }
@@ -255,7 +256,7 @@ public struct HIGRenderer {
         if let reference = references[identifier], !reference.isImageReference {
             let title = reference.title ?? identifier
             if let url = reference.url {
-                return "[\(title)](\(url))"
+                return "[\(title)](\(normalizedURL(url)))"
             } else {
                 return title
             }
@@ -271,7 +272,7 @@ public struct HIGRenderer {
         let title = reference.title ?? identifier
         var line = "- [\(title)]"
         if let url = reference.url {
-            line += "(\(url))"
+            line += "(\(normalizedURL(url)))"
         }
         if let abstract = reference.abstract, !abstract.isEmpty {
             let summary = renderInlineContent(abstract, references: references)
@@ -315,7 +316,8 @@ public struct HIGRenderer {
             let indent = String(repeating: "  ", count: depth)
             let title = item.title ?? "Untitled"
             if let path = item.path, !path.isEmpty {
-                markdown += "\(indent)- [\(title)](\(path))\n"
+                let displayPath = normalizedURL(path)
+                markdown += "\(indent)- [\(title)](\(displayPath))\n"
             } else {
                 markdown += "\(indent)- \(title)\n"
             }
@@ -331,5 +333,9 @@ public struct HIGRenderer {
             return nil
         }
         return variant.url
+    }
+
+    private func normalizedURL(_ url: String) -> String {
+        return DocURLUtilities.toWebURL(url) ?? url
     }
 }
