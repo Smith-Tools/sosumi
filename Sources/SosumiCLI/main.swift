@@ -99,7 +99,7 @@ struct SosumiCLI: AsyncParsableCommand {
                 } else if filter.contentType != nil {
                     print("🔧 Using expert type filtering")
                 } else {
-                    print("🤖 Using automatic intent detection")
+                    print("🤖 Using automatic intent detection + comprehensive search")
                 }
 
                 // Perform enhanced comprehensive search with filtering
@@ -111,7 +111,8 @@ struct SosumiCLI: AsyncParsableCommand {
 
                 if searchResults.isEmpty {
                     print("❌ No Apple documentation found for: \(query)")
-                    print("💡 Try searching for frameworks like 'SwiftUI', 'Combine', 'async'")
+                    print("💡 Try: sosumi doc \"\(query.lowercased())\" for direct framework access")
+                    print("💡 Or try: SharePlay, SwiftUI, Combine, GroupActivities")
 
                     // Show filtering info if filters were applied
                     if filter.contentType != nil || filter.requiresPlatforms != nil || filter.maxTimeEstimate != nil {

@@ -808,7 +808,7 @@ public extension AppleDocumentationClient {
         return .all
     }
 
-    /// Enhanced comprehensive search with intent-based filtering and ranking
+    /// Enhanced comprehensive search with intent-based filtering and comprehensive fallback
     func comprehensiveSearch(
         query: String,
         limit: Int? = nil,
@@ -820,8 +820,14 @@ public extension AppleDocumentationClient {
             searchFilter.intent = detectIntent(from: query)
         }
 
-        // Perform existing search logic first
+        // Perform existing search logic first (limited Apple index)
         var results = try await searchDocumentation(query: query)
+
+        // If limited search has few results, try comprehensive fallback
+        if results.count < 3 {
+            let fallbackResults = try await comprehensiveFallbackSearch(query: query, existingResults: results)
+            results.append(contentsOf: fallbackResults)
+        }
 
         // Apply intent-based filtering and ranking
         results = try await applyFilter(results, filter: searchFilter, query: query)
@@ -832,6 +838,235 @@ public extension AppleDocumentationClient {
         }
 
         return results
+    }
+
+    /// Comprehensive fallback search that covers ALL Apple frameworks
+    private func comprehensiveFallbackSearch(
+        query: String,
+        existingResults: [DocumentationSearchResult]
+    ) async throws -> [DocumentationSearchResult] {
+        var fallbackResults: [DocumentationSearchResult] = []
+
+        // 1. Try direct framework name matches
+        let frameworkResults = try await directFrameworkSearch(query: query)
+        fallbackResults.append(contentsOf: frameworkResults)
+
+        // 2. Try camelCase variations and common typos
+        let variations = generateFrameworkVariations(query: query)
+        for variation in variations {
+            if !frameworkResults.contains(where: { $0.title.contains(variation) }) {
+                let variationResults = try await directFrameworkSearch(query: variation)
+                fallbackResults.append(contentsOf: variationResults)
+            }
+        }
+
+        // 3. Try broader documentation search if we still have few results
+        if fallbackResults.count < 3 {
+            let broadResults = try await broadDocumentationSearch(query: query)
+            fallbackResults.append(contentsOf: broadResults)
+        }
+
+        // Deduplicate while preserving order and relevance
+        return deduplicateSearchResults(fallbackResults, existingResults: existingResults)
+    }
+
+    /// Direct framework search using known framework names
+    private func directFrameworkSearch(query: String) async throws -> [DocumentationSearchResult] {
+        var results: [DocumentationSearchResult] = []
+
+        let knownFrameworks = [
+            "swiftui", "uikit", "appkit", "foundation", "coredata", "metal", "arkit", "visionos",
+            "widgetkit", "eventkit", "coreml", "avfoundation", "mapkit", "combine", "swiftdata",
+            "groupactivities", "shareplay", "realitykit", "visionkit", "passkit", "watchkit", "homekit",
+            "healthkit", "coremotion", "corelocation", "corebluetooth", "network", "multipeerconnectivity",
+            "eventkitui", "photosui", "phonenumbers", "contactsui", "calendarui", "messageui",
+            "carplay", "externalaccessory", "fileproviderextensionui", "pdfkit", "screentimeapi",
+            "sf_symbols", "avfaudioplayers", "musicplayer", "mediasession"
+        ]
+
+        // Try to fetch each framework's index and search for matches
+        for framework in knownFrameworks {
+            do {
+                let frameworkResults = try await fetchFrameworkIndex(framework: framework)
+
+                let matchingItems = frameworkResults.filter { item in
+                    // Smart matching with the query
+                    item.name.localizedCaseInsensitiveContains(query) ||
+                    item.url.localizedCaseInsensitiveContains(query)
+                }
+
+                for item in matchingItems {
+                    let result = DocumentationSearchResult(
+                        title: item.name,
+                        url: item.url,
+                        type: item.kind,
+                        description: item.abstract?.compactMap { $0.text }.joined(separator: " "),
+                        identifier: extractIdentifier(from: item.url)
+                    )
+
+                    results.append(result)
+                }
+            } catch {
+                // Continue with other frameworks if one fails
+                continue
+            }
+        }
+
+        return results
+    }
+
+    /// Broader documentation search across Apple's documentation site
+    private func broadDocumentationSearch(query: String) async throws -> [DocumentationSearchResult] {
+        var results: [DocumentationSearchResult] = []
+
+        // Try to construct likely documentation paths based on query
+        let potentialPaths = generateDocumentationPaths(query: query)
+
+        for path in potentialPaths {
+            do {
+                let documentation = try await fetchDocumentation(path: path)
+
+                // Check if this documentation actually matches our query
+                if documentationMatchesQuery(documentation, query: query) {
+                    let result = DocumentationSearchResult(
+                        title: documentation.metadata?.title ?? path,
+                        url: "https://developer.apple.com/documentation/\(path)",
+                        type: documentation.kind ?? "documentation",
+                        description: documentation.abstract?.compactMap { $0.text }.joined(separator: " "),
+                        identifier: extractIdentifier(from: documentation.identifier?.url ?? "")
+                    )
+                    results.append(result)
+                }
+            } catch {
+                // Continue with other paths if one fails
+                continue
+            }
+        }
+
+        return results
+    }
+
+    /// Check if documentation content matches the search query
+    private func documentationMatchesQuery(_ documentation: AppleDocumentation, query: String) -> Bool {
+        let queryLower = query.lowercased()
+
+        // Check title
+        if let title = documentation.metadata?.title {
+            if title.lowercased().contains(queryLower) {
+                return true
+            }
+        }
+
+        // Check abstract
+        if let abstract = documentation.abstract {
+            let abstractText = abstract.compactMap { $0.text }.joined(separator: " ").lowercased()
+            if abstractText.contains(queryLower) {
+                return true
+            }
+        }
+
+        // Check primary content sections
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                if let title = section.title {
+                    if title.lowercased().contains(queryLower) {
+                        return true
+                    }
+                }
+                if let content = section.content {
+                    let contentText = content.compactMap { $0.text }.joined(separator: " ").lowercased()
+                    if contentText.contains(queryLower) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
+    /// Generate potential documentation paths from query
+    private func generateDocumentationPaths(query: String) -> [String] {
+        var paths: [String] = []
+
+        let queryLower = query.lowercased()
+
+        // Direct path attempts (most likely)
+        paths.append(queryLower)  // "groupactivities" → "groupactivities"
+
+        // Common patterns
+        paths.append("\(queryLower.lowercased())")  // "GroupActivities" → "groupactivities"
+        paths.append("\(queryLower.lowercased())")  // "SharePlay" → "shareplay"
+
+        // Framework-specific patterns
+        if queryLower.contains("share") {
+            paths.append("shareplay")
+            paths.append("groupactivities")
+        }
+
+        if queryLower.contains("vision") {
+            paths.append("visionos")
+        }
+
+        if queryLower.contains("activity") {
+            paths.append("groupactivities")
+        }
+
+        // Remove duplicates and return
+        return Array(Set(paths))
+    }
+
+    /// Generate common variations and typos for framework names
+    private func generateFrameworkVariations(query: String) -> [String] {
+        var variations: [String] = []
+
+        let queryLower = query.lowercased()
+
+        // Common plural/singular variations
+        if queryLower.hasSuffix("ies") {
+            variations.append(String(queryLower.dropLast(3))) // "activities" → "activity"
+        } else if !queryLower.hasSuffix("s") {
+            variations.append(queryLower + "s") // "activity" → "activities"
+        }
+
+        // Common misspellings
+        let commonMisspellings: [String: [String]] = [
+            "groupactivities": ["groupactivity", "group_activity"],
+            "shareplay": ["share-play"],
+            "realitykit": ["reality_kit"],
+            "visionos": ["vision_os"],
+            "swiftui": ["swift_ui"],
+            "uikit": ["ui_kit"],
+            "appkit": ["app_kit"],
+            "coredata": ["core_data"],
+            "coreml": ["core_ml"]
+        ]
+
+        if let misspellings = commonMisspellings[queryLower] {
+            variations.append(contentsOf: misspellings)
+        }
+
+        return Array(Set(variations))
+    }
+
+    /// Remove duplicates from search results while preserving order
+    private func deduplicateSearchResults(_ newResults: [DocumentationSearchResult], existingResults: [DocumentationSearchResult]) -> [DocumentationSearchResult] {
+        var seen = Set<String>()
+
+        // Add existing results to seen set
+        for result in existingResults {
+            seen.insert(result.url)
+        }
+
+        // Add only new results not already seen
+        var deduplicated: [DocumentationSearchResult] = []
+        for result in newResults {
+            if seen.insert(result.url).inserted {
+                deduplicated.append(result)
+            }
+        }
+
+        return deduplicated
     }
 
     /// Applies filters to search results
