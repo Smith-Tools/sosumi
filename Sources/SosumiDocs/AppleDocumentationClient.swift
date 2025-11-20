@@ -128,7 +128,9 @@ public class AppleDocumentationClient {
 
         let targetFrameworks = frameworks ?? [
             "swiftui", "swiftdata", "combine", "async-await", "concurrency",
-            "uikit", "appkit", "coredata", "metal", "arkit", "visionos"
+            "uikit", "appkit", "coredata", "metal", "arkit", "visionos",
+            "widgetkit", "eventkit", "coreml", "avfoundation", "mapkit",
+            "bundleresources"
         ]
 
         for framework in targetFrameworks {
@@ -378,7 +380,8 @@ public class AppleDocumentationClient {
         let supportedFrameworks = [
             "swiftui", "swiftdata", "combine", "async-await", "concurrency",
             "uikit", "appkit", "coredata", "metal", "arkit", "visionos",
-            "widgetkit", "eventkit", "coreml", "avfoundation", "mapkit"
+            "widgetkit", "eventkit", "coreml", "avfoundation", "mapkit",
+            "bundleresources"
         ]
         return supportedFrameworks.contains(framework.lowercased())
     }

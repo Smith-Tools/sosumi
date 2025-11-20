@@ -518,6 +518,14 @@ struct SosumiCLI: AsyncParsableCommand {
                     )
                 }
 
+            } catch let clientError as AppleDocumentationClient.ClientError {
+                if case .notFound = clientError {
+                    await suggestAlternatives(path: path, client: client)
+                }
+                print("❌ Failed to fetch documentation: \(clientError)")
+                print("💡 Try using a path like 'swiftui/view' or a full URL")
+                print("🔗 Apple Developer documentation: https://developer.apple.com/documentation")
+                throw ExitCode.failure
             } catch {
                 print("❌ Failed to fetch documentation: \(error)")
                 print("💡 Try using a path like 'swiftui/view' or a full URL")
@@ -581,6 +589,65 @@ struct SosumiCLI: AsyncParsableCommand {
             } else {
                 print(content)
             }
+        }
+
+        private func suggestAlternatives(path: String, client: AppleDocumentationClient) async {
+            print("⚠️ Page not found. Apple documentation slugs are case-sensitive and change over time.")
+            let queries = extractCandidateQueries(from: path)
+            guard !queries.isEmpty else { return }
+
+            for query in queries {
+                do {
+                    print("🔍 Looking for related documentation matching '\(query)' ...")
+                    let response = try await client.comprehensiveSearch(query: query)
+                    if response.results.isEmpty {
+                        continue
+                    }
+                    for result in response.results.prefix(5) {
+                        print("   • \(result.title) → \(result.url)")
+                    }
+                    print("   Tip: copy the exact link from the browser (case-sensitive) or use 'doc://' identifiers.")
+                    return
+                } catch {
+                    continue
+                }
+            }
+
+            print("   No suggestions found. Try browsing the parent path or copying the link from developer.apple.com.")
+        }
+
+        private func extractCandidateQueries(from path: String) -> [String] {
+            let anchorSplit = path.split(separator: "#", maxSplits: 1).first ?? Substring(path)
+            let components = anchorSplit.split(separator: "/").filter { !$0.isEmpty }
+            var candidates: [String] = []
+
+            if let last = components.last {
+                candidates.append(String(last))
+                let spaced = insertSpaces(in: String(last))
+                if spaced.lowercased() != String(last).lowercased() {
+                    candidates.append(spaced)
+                }
+            }
+
+            if components.count > 1 {
+                let parent = components[components.count - 2]
+                candidates.append(String(parent))
+            }
+
+            let cleaned = candidates
+                .map { $0.replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { $0.count >= 3 }
+
+            var seen = Set<String>()
+            return cleaned.filter { seen.insert($0.lowercased()).inserted }
+        }
+
+        private func insertSpaces(in text: String) -> String {
+            let pattern = "([a-z0-9])([A-Z])"
+            let regex = try? NSRegularExpression(pattern: pattern)
+            let range = NSRange(text.startIndex..<text.endIndex, in: text)
+            let spaced = regex?.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "$1 $2") ?? text
+            return spaced.replacingOccurrences(of: "_", with: " ")
         }
     }
 }
