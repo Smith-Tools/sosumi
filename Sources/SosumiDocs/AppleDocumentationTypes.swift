@@ -341,7 +341,141 @@ public struct DocumentationPlatform: Codable {
     }
 }
 
-/// Documentation metadata
+// MARK: - RenderNode Extension Types
+
+/// Custom metadata values that can contain various fields for learning content
+public struct CustomMetadataValue: Codable {
+    public let requirements: [String]?
+    public let estimatedTime: String?
+    public let skillLevel: String?
+    public let prerequisites: [String]?
+    public let tags: [String]?
+
+    public init(
+        requirements: [String]? = nil,
+        estimatedTime: String? = nil,
+        skillLevel: String? = nil,
+        prerequisites: [String]? = nil,
+        tags: [String]? = nil
+    ) {
+        self.requirements = requirements
+        self.estimatedTime = estimatedTime
+        self.skillLevel = skillLevel
+        self.prerequisites = prerequisites
+        self.tags = tags
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+
+        // Try to decode as a dictionary first
+        if let dictValue = try? container.decode([String: AnyCodingValue].self) {
+            self.requirements = dictValue["requirements"]?.arrayValue?.compactMap { $0.stringValue }
+            self.estimatedTime = dictValue["estimatedTime"]?.stringValue
+            self.skillLevel = dictValue["skillLevel"]?.stringValue
+            self.prerequisites = dictValue["prerequisites"]?.arrayValue?.compactMap { $0.stringValue }
+            self.tags = dictValue["tags"]?.arrayValue?.compactMap { $0.stringValue }
+        } else {
+            // Handle as null or other types
+            self.requirements = nil
+            self.estimatedTime = nil
+            self.skillLevel = nil
+            self.prerequisites = nil
+            self.tags = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        var dict: [String: AnyCodingValue] = [:]
+
+        if let requirements = requirements {
+            dict["requirements"] = .array(requirements.map { .string($0) })
+        }
+        if let estimatedTime = estimatedTime {
+            dict["estimatedTime"] = .string(estimatedTime)
+        }
+        if let skillLevel = skillLevel {
+            dict["skillLevel"] = .string(skillLevel)
+        }
+        if let prerequisites = prerequisites {
+            dict["prerequisites"] = .array(prerequisites.map { .string($0) })
+        }
+        if let tags = tags {
+            dict["tags"] = .array(tags.map { .string($0) })
+        }
+
+        try container.encode(dict)
+    }
+}
+
+/// Helper type for flexible JSON decoding
+private enum AnyCodingValue: Codable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case array([AnyCodingValue])
+    case object([String: AnyCodingValue])
+    case null
+
+    var stringValue: String? {
+        if case .string(let value) = self { return value }
+        return nil
+    }
+
+    var arrayValue: [AnyCodingValue]? {
+        if case .array(let value) = self { return value }
+        return nil
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+
+        if container.decodeNil() {
+            self = .null
+        } else if let stringValue = try? container.decode(String.self) {
+            self = .string(stringValue)
+        } else if let intValue = try? container.decode(Int.self) {
+            self = .int(intValue)
+        } else if let doubleValue = try? container.decode(Double.self) {
+            self = .double(doubleValue)
+        } else if let boolValue = try? container.decode(Bool.self) {
+            self = .bool(boolValue)
+        } else if let arrayValue = try? container.decode([AnyCodingValue].self) {
+            self = .array(arrayValue)
+        } else if let objectValue = try? container.decode([String: AnyCodingValue].self) {
+            self = .object(objectValue)
+        } else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unsupported JSON type")
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        switch self {
+        case .null:
+            try container.encodeNil()
+        case .string(let value):
+            try container.encode(value)
+        case .int(let value):
+            try container.encode(value)
+        case .double(let value):
+            try container.encode(value)
+        case .bool(let value):
+            try container.encode(value)
+        case .array(let value):
+            try container.encode(value)
+        case .object(let value):
+            try container.encode(value)
+        }
+    }
+}
+
+/// Enhanced documentation metadata with customMetadata support
 public struct DocumentationMetadata: Codable {
     public let color: String?
     public let role: String?
@@ -349,6 +483,7 @@ public struct DocumentationMetadata: Codable {
     public let platforms: [DocumentationPlatform]?
     public let title: String?
     public let symbolVariant: String?
+    public let customMetadata: CustomMetadataValue?  // ADD: Custom metadata for learning content
 
     public init(
         color: String? = nil,
@@ -356,7 +491,8 @@ public struct DocumentationMetadata: Codable {
         roleHeading: String? = nil,
         platforms: [DocumentationPlatform]? = nil,
         title: String? = nil,
-        symbolVariant: String? = nil
+        symbolVariant: String? = nil,
+        customMetadata: CustomMetadataValue? = nil
     ) {
         self.color = color
         self.role = role
@@ -364,12 +500,22 @@ public struct DocumentationMetadata: Codable {
         self.platforms = platforms
         self.title = title
         self.symbolVariant = symbolVariant
+        self.customMetadata = customMetadata
+    }
+}
+
+/// Hierarchy information for breadcrumb navigation
+public struct Hierarchy: Codable {
+    public let paths: [[String]]?  // Multiple breadcrumb paths as arrays of strings
+
+    public init(paths: [[String]]? = nil) {
+        self.paths = paths
     }
 }
 
 // MARK: - Main Response Type
 
-/// Root type representing Apple documentation JSON response
+/// Root type representing Apple documentation JSON response (RenderNode)
 public struct AppleDocumentation: Codable {
     public let metadata: DocumentationMetadata?
     public let abstract: [TextFragment]?
@@ -383,6 +529,7 @@ public struct AppleDocumentation: Codable {
     public let schemaVersion: VersionInfo?
     public let kind: String?
     public let url: String?
+    public let hierarchy: Hierarchy?  // ADD: Hierarchy for breadcrumb navigation
 
     public init(
         metadata: DocumentationMetadata? = nil,
@@ -396,7 +543,8 @@ public struct AppleDocumentation: Codable {
         identifier: DocumentationIdentifier? = nil,
         schemaVersion: VersionInfo? = nil,
         kind: String? = nil,
-        url: String? = nil
+        url: String? = nil,
+        hierarchy: Hierarchy? = nil
     ) {
         self.metadata = metadata
         self.abstract = abstract
@@ -410,6 +558,7 @@ public struct AppleDocumentation: Codable {
         self.schemaVersion = schemaVersion
         self.kind = kind
         self.url = url
+        self.hierarchy = hierarchy
     }
 }
 

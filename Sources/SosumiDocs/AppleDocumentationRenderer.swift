@@ -505,3 +505,299 @@ extension AppleDocumentationRenderer {
         return markdown
     }
 }
+
+// MARK: - Content Type Specific Rendering
+
+public extension AppleDocumentationRenderer {
+
+    /// Main dispatcher that renders by content type using extracted metadata
+    func renderByContentType(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        switch metadata.contentType {
+        case .sampleCode:
+            return renderSampleCode(documentation, metadata: metadata)
+        case .article:
+            return renderArticle(documentation, metadata: metadata)
+        case .symbol:
+            return renderSymbol(documentation, metadata: metadata)
+        case .tutorial:
+            return renderTutorial(documentation, metadata: metadata)
+        case .generic:
+            return renderGeneric(documentation, metadata: metadata)
+        }
+    }
+
+    /// Renders sample code with requirements, time estimates, and related content
+    private func renderSampleCode(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        var output = ""
+
+        // Header with sample code badge
+        if let title = documentation.metadata?.title {
+            output += "# 💻 \(title)\n"
+        } else {
+            output += "# 💻 Sample Code\n"
+        }
+
+        if let roleHeading = metadata.roleHeading {
+            output += "*\(roleHeading)*\n\n"
+        }
+
+        // Requirements section
+        if !metadata.requirements.isEmpty {
+            output += "## Requirements\n"
+            for req in metadata.requirements {
+                output += "- \(req)\n"
+            }
+            output += "\n"
+        }
+
+        // Time estimate
+        if let time = metadata.timeEstimate {
+            output += "**Estimated Time:** \(time)\n\n"
+        }
+
+        // Platform availability
+        if !metadata.platforms.isEmpty {
+            output += "## Platforms\n"
+            for platform in metadata.platforms {
+                output += "- \(platform)\n"
+            }
+            output += "\n"
+        }
+
+        // Abstract
+        if let abstract = documentation.abstract {
+            output += renderTextFragments(abstract)
+            output += "\n\n"
+        }
+
+        // Main content sections
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                output += renderPrimaryContentSection(section)
+            }
+        }
+
+        // Related sample code
+        if !metadata.relatedTopics.isEmpty {
+            output += "## See Also\n"
+            for topic in metadata.relatedTopics {
+                output += "- \(topic)\n"
+            }
+            output += "\n"
+        }
+
+        return output
+    }
+
+    /// Renders articles with breadcrumbs, prerequisites, and learning paths
+    private func renderArticle(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        var output = ""
+
+        // Header with article badge
+        if let title = documentation.metadata?.title {
+            output += "# 📝 \(title)\n"
+        } else {
+            output += "# 📝 Article\n"
+        }
+
+        // Breadcrumbs for context
+        output += formatBreadcrumbs(metadata.breadcrumbs) + "\n"
+
+        // Prerequisites if any
+        if !metadata.requirements.isEmpty {
+            output += "## Prerequisites\n"
+            for req in metadata.requirements {
+                output += "- \(req)\n"
+            }
+            output += "\n"
+        }
+
+        // Learning time
+        if let time = metadata.timeEstimate {
+            output += "**Learning Time:** \(time)\n\n"
+        }
+
+        // Abstract
+        if let abstract = documentation.abstract {
+            output += renderTextFragments(abstract)
+            output += "\n\n"
+        }
+
+        // Main content
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                output += renderPrimaryContentSection(section)
+            }
+        }
+
+        // Related learning paths
+        if !metadata.relatedTopics.isEmpty {
+            output += "## Learn More\n"
+            for topic in metadata.relatedTopics {
+                output += "- \(topic)\n"
+            }
+            output += "\n"
+        }
+
+        return output
+    }
+
+    /// Renders symbols with platform availability, conformances, and technical details
+    private func renderSymbol(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        var output = ""
+
+        // Header with symbol badge
+        if let title = documentation.metadata?.title {
+            output += "# ⚙️ \(title)\n"
+        } else {
+            output += "# ⚙️ Symbol\n"
+        }
+
+        // Platform availability with version info
+        if !metadata.platforms.isEmpty {
+            output += "**Availability:**\n"
+            for platform in metadata.platforms {
+                output += "- \(platform)\n"
+            }
+            output += "\n"
+        }
+
+        // Conformances / relationships
+        output += formatRelationships(metadata.relationships) + "\n"
+
+        // Abstract
+        if let abstract = documentation.abstract {
+            output += renderTextFragments(abstract)
+            output += "\n\n"
+        }
+
+        // Declaration/signature (from primary content sections)
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                output += renderPrimaryContentSection(section)
+            }
+        }
+
+        // Related symbols
+        if !metadata.relatedTopics.isEmpty {
+            output += "## Related\n"
+            for topic in metadata.relatedTopics {
+                output += "- \(topic)\n"
+            }
+            output += "\n"
+        }
+
+        return output
+    }
+
+    /// Renders tutorials with step-by-step guidance and learning objectives
+    private func renderTutorial(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        var output = ""
+
+        // Header with tutorial badge
+        if let title = documentation.metadata?.title {
+            output += "# 🎓 \(title)\n"
+        } else {
+            output += "# 🎓 Tutorial\n"
+        }
+
+        // Role heading
+        if let roleHeading = metadata.roleHeading {
+            output += "*\(roleHeading)*\n\n"
+        }
+
+        // Time estimate (important for tutorials)
+        if let time = metadata.timeEstimate {
+            output += "**⏱️ Duration:** \(time)\n\n"
+        }
+
+        // Difficulty level if available
+        if let customMeta = metadata.customMetadata["skillLevel"] as? String {
+            output += "**📊 Difficulty:** \(customMeta)\n\n"
+        }
+
+        // Abstract
+        if let abstract = documentation.abstract {
+            output += renderTextFragments(abstract)
+            output += "\n\n"
+        }
+
+        // Main tutorial content
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                output += renderPrimaryContentSection(section)
+            }
+        }
+
+        // What's next
+        if !metadata.relatedTopics.isEmpty {
+            output += "## What's Next\n"
+            for topic in metadata.relatedTopics {
+                output += "- \(topic)\n"
+            }
+            output += "\n"
+        }
+
+        return output
+    }
+
+    /// Generic fallback renderer for unknown content types
+    private func renderGeneric(_ documentation: AppleDocumentation, metadata: ExtractedMetadata) -> String {
+        var output = ""
+
+        // Standard header
+        if let title = documentation.metadata?.title {
+            output += "# \(title)\n"
+        }
+
+        // Role heading if available
+        if let roleHeading = metadata.roleHeading {
+            output += "*\(roleHeading)*\n\n"
+        }
+
+        // Abstract
+        if let abstract = documentation.abstract {
+            output += renderTextFragments(abstract)
+            output += "\n\n"
+        }
+
+        // Main content
+        if let sections = documentation.primaryContentSections {
+            for section in sections {
+                output += renderPrimaryContentSection(section)
+            }
+        }
+
+        // Basic metadata
+        if !metadata.platforms.isEmpty {
+            output += "## Platforms\n"
+            for platform in metadata.platforms {
+                output += "- \(platform)\n"
+            }
+            output += "\n"
+        }
+
+        return output
+    }
+
+    /// Formats breadcrumb navigation
+    private func formatBreadcrumbs(_ crumbs: [String]) -> String {
+        guard !crumbs.isEmpty else { return "" }
+        return "📍 " + crumbs.joined(separator: " > ") + "\n"
+    }
+
+    /// Formats relationship information (conformances, inheritance, etc.)
+    private func formatRelationships(_ relationships: [String: [String]]) -> String {
+        guard !relationships.isEmpty else { return "" }
+
+        var output = "## Details\n"
+        for (type, items) in relationships {
+            output += "**\(type.capitalized):**\n"
+            for item in items {
+                output += "- \(item)\n"
+            }
+            output += "\n"
+        }
+        return output
+    }
+}

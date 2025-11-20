@@ -33,8 +33,17 @@ struct SosumiCLI: AsyncParsableCommand {
         @Option(name: .long, help: "Limit number of results")
         var limit: Int?
 
-        @Option(name: .long, help: "Content type filter")
+        @Option(name: .long, help: "Filter by intent (example, explain, reference, learn) - agent-friendly")
+        var intent: String?
+
+        @Option(name: .long, help: "Filter by content type (article, sampleCode, symbol, tutorial) - expert mode")
         var type: String?
+
+        @Option(name: .long, help: "Require minimum platform (e.g., ios14, macos12)")
+        var requires: String?
+
+        @Option(name: .long, help: "Maximum learning time in minutes (e.g., 15)")
+        var timeEstimate: Int?
 
         mutating func run() async throws {
             print("🔍 Searching Apple documentation for: \(query)")
@@ -43,45 +52,109 @@ struct SosumiCLI: AsyncParsableCommand {
             let renderer = AppleDocumentationRenderer()
 
             do {
-                // Perform comprehensive search across Apple documentation
-                let searchResponse = try await client.comprehensiveSearch(query: query)
+                // Build filter from command line options
+                var filter = ContentTypeFilter()
 
-                if searchResponse.results.isEmpty {
+                // Parse intent filter (NEW - primary approach)
+                if let intentString = intent?.lowercased() {
+                    if let parsedIntent = SearchIntent.from(string: intentString) {
+                        filter.intent = parsedIntent
+                        print("🎯 Intent: \(parsedIntent)")
+                    } else {
+                        print("⚠️ Unknown intent: \(intentString). Valid intents: example, explain, reference, learn, all")
+                        return
+                    }
+                }
+
+                // Parse content type filter (EXPERT MODE - secondary approach)
+                if let typeString = type?.lowercased() {
+                    switch typeString {
+                    case "article", "articles":
+                        filter.contentType = .article
+                    case "sample", "samplecode", "code":
+                        filter.contentType = .sampleCode
+                    case "symbol", "symbols", "api":
+                        filter.contentType = .symbol
+                    case "tutorial", "tutorials":
+                        filter.contentType = .tutorial
+                    default:
+                        print("⚠️ Unknown content type: \(typeString). Valid types: article, sampleCode, symbol, tutorial")
+                        return
+                    }
+                }
+
+                // Parse platform requirements
+                if let requires = requires {
+                    filter.requiresPlatforms = parsePlatformRequirements(requires)
+                }
+
+                // Parse time estimate
+                if let timeEstimate = timeEstimate {
+                    filter.maxTimeEstimate = timeEstimate
+                }
+
+                // Show what type of search is being performed
+                if filter.intent != nil {
+                    print("🎯 Using intent-based ranking (agent-friendly)")
+                } else if filter.contentType != nil {
+                    print("🔧 Using expert type filtering")
+                } else {
+                    print("🤖 Using automatic intent detection")
+                }
+
+                // Perform enhanced comprehensive search with filtering
+                let searchResults = try await client.comprehensiveSearch(
+                    query: query,
+                    limit: limit,
+                    filter: filter
+                )
+
+                if searchResults.isEmpty {
                     print("❌ No Apple documentation found for: \(query)")
                     print("💡 Try searching for frameworks like 'SwiftUI', 'Combine', 'async'")
+
+                    // Show filtering info if filters were applied
+                    if filter.contentType != nil || filter.requiresPlatforms != nil || filter.maxTimeEstimate != nil {
+                        print("🔍 Filters applied - try removing some filters to see more results")
+                    }
                     return
                 }
 
-                // Apply optional filters and limits prior to rendering
-                let filteredResults: [DocumentationSearchResult]
-                if let typeFilter = type?.lowercased(), !typeFilter.isEmpty {
-                    filteredResults = searchResponse.results.filter {
-                        $0.type.lowercased().contains(typeFilter)
-                    }
-                } else {
-                    filteredResults = searchResponse.results
-                }
-
-                let limitedResults: [DocumentationSearchResult]
-                if let limit = limit, limit < filteredResults.count {
-                    limitedResults = Array(filteredResults.prefix(limit))
-                } else {
-                    limitedResults = filteredResults
-                }
-
+                // Create response for rendering
                 let renderedResponse = DocumentationSearchResponse(
-                    query: searchResponse.query,
-                    results: limitedResults,
-                    metadata: searchResponse.metadata,
-                    totalFound: filteredResults.count
+                    query: query,
+                    results: searchResults,
+                    metadata: [:],
+                    totalFound: searchResults.count
                 )
 
                 // Render search results to markdown
                 let markdown = renderer.renderSearchResults(renderedResponse)
                 print(markdown)
 
-                if let limit = limit, limit < filteredResults.count {
-                    print("📊 Showing top \(limit) of \(filteredResults.count) results")
+                // Show filter information
+                var filterInfo: [String] = []
+                if let intent = filter.intent {
+                    filterInfo.append("intent: \(intent)")
+                }
+                if let contentType = filter.contentType {
+                    filterInfo.append("type: \(contentType)")
+                }
+                if let platforms = filter.requiresPlatforms {
+                    filterInfo.append("platforms: \(platforms.joined(separator: ", "))")
+                }
+                if let maxTime = filter.maxTimeEstimate {
+                    filterInfo.append("max time: \(maxTime)min")
+                }
+
+                if !filterInfo.isEmpty {
+                    print("🔍 Applied filters: \(filterInfo.joined(separator: ", "))")
+                }
+
+                if let limit = limit, limit < searchResults.count {
+                    print("📊 Showing top \(limit) results")
+                } else {
+                    print("📊 Found \(searchResults.count) results")
                 }
 
             } catch {
@@ -89,6 +162,13 @@ struct SosumiCLI: AsyncParsableCommand {
                 print("💡 This might be a network issue or the API endpoints may have changed")
                 print("🔗 For Apple Developer documentation, visit: https://developer.apple.com/documentation")
             }
+        }
+
+        /// Parse platform requirements from string like "ios14,macos12"
+        private func parsePlatformRequirements(_ input: String) -> [String] {
+            return input.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
         }
     }
 

@@ -163,10 +163,41 @@ The `search` command defaults to a **combined view** (Apple docs + WWDC). Use `-
 
 #### Documentation Search (`docs`)
 ```bash
-/skill sosumi docs <query> [--limit <number>]
+/skill sosumi docs <query> [--limit <number>] [--intent <intent>] [--type <type>] [--requires <platforms>] [--time-estimate <minutes>]
 ```
 
-Runs the live Apple documentation search directly (same as `sosumi docs`). Use when you only need API references without WWDC output.
+Runs the live Apple documentation search with **intent-based filtering**. Use when you need targeted documentation without knowing content type terminology.
+
+**🎯 Intent-Based Filtering (NEW - Agent-Friendly):**
+- `--intent <example|explain|reference|learn|all>` - Express what you want to accomplish
+- **Automatic intent detection** - No flags needed for most queries
+- **Smart ranking** - Results ranked by relevance to your intent
+
+**🔧 Expert Mode Filtering (Advanced):**
+- `--type <article|sampleCode|symbol|tutorial>` - Filter by content type
+- `--requires <ios14,macos12>` - Require specific platform support
+- `--time-estimate <15>` - Limit to content under X minutes
+
+**Examples:**
+```bash
+# Intent-based (recommended for agents)
+/skill sosumi docs "how to animate"                    # Auto-detects example intent
+/skill sosumi docs "animation examples" --intent example  # Find working code
+/skill sosumi docs "explain animations" --intent explain  # Understand concepts
+/skill sosumi docs "animation API" --intent reference     # Technical details
+/skill sosumi docs "learn animations" --intent learn       # Step-by-step tutorials
+
+# Smart defaults work automatically
+/skill sosumi docs "SwiftUI animation"   # Detects intent, ranks appropriately
+/skill sosumi docs "Button example"       # Boosts sample code automatically
+
+# Expert mode (when you know content types)
+/skill sosumi docs "animation" --type sampleCode  # Direct type filtering
+
+# Platform and time filtering
+/skill sosumi docs "widgets" --requires ios17
+/skill sosumi docs "SwiftUI" --intent learn --time-estimate 15
+```
 
 #### Documentation Fetch
 ```bash
