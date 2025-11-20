@@ -30,14 +30,17 @@ struct SosumiCLI: AsyncParsableCommand {
         @Argument(help: "Search query")
         var query: String
 
-        @Option(name: .long, help: "Limit number of results")
-        var limit: Int?
+        @Option(name: .long, help: "Limit number of results (default: 15 for agent efficiency)")
+        var limit: Int = 15
 
         @Option(name: .long, help: "Filter by intent (example, explain, reference, learn) - agent-friendly")
         var intent: String?
 
         @Option(name: .long, help: "Filter by content type (article, sampleCode, symbol, tutorial) - expert mode")
         var type: String?
+
+        @Option(name: .long, help: "Output format: markdown, compact, or json (compact for agent efficiency)")
+        var format: String = "markdown"
 
         @Option(name: .long, help: "Require minimum platform (e.g., ios14, macos12)")
         var requires: String?
@@ -103,13 +106,19 @@ struct SosumiCLI: AsyncParsableCommand {
                 }
 
                 // Perform enhanced comprehensive search with filtering
-                let searchResults = try await client.comprehensiveSearch(
+                // First get total count without limit, then apply limit for efficiency
+                let allResults = try await client.comprehensiveSearch(
                     query: query,
-                    limit: limit,
+                    limit: nil,  // Get all results to count them
                     filter: filter
                 )
 
-                if searchResults.isEmpty {
+                let totalFound = allResults.count
+                let limitedResults = totalFound > limit
+                    ? Array(allResults.prefix(limit))
+                    : allResults
+
+                if limitedResults.isEmpty {
                     print("❌ No Apple documentation found for: \(query)")
                     print("💡 Try: sosumi doc \"\(query.lowercased())\" for direct framework access")
                     print("💡 Or try: SharePlay, SwiftUI, Combine, GroupActivities")
@@ -124,14 +133,30 @@ struct SosumiCLI: AsyncParsableCommand {
                 // Create response for rendering
                 let renderedResponse = DocumentationSearchResponse(
                     query: query,
-                    results: searchResults,
+                    results: limitedResults,
                     metadata: [:],
-                    totalFound: searchResults.count
+                    totalFound: totalFound
                 )
 
-                // Render search results to markdown
-                let markdown = renderer.renderSearchResults(renderedResponse)
-                print(markdown)
+                // Render search results in appropriate format
+                let output: String
+                let formatLower = format.lowercased()
+                if formatLower == "compact" {
+                    output = renderer.renderSearchResultsCompact(renderedResponse)
+                } else if formatLower == "compact-scores" {
+                    output = renderer.renderSearchResultsCompactWithScores(renderedResponse)
+                } else {
+                    output = renderer.renderSearchResults(renderedResponse)
+                }
+                print(output)
+
+                // Show efficiency information
+                if totalFound > limitedResults.count {
+                    print("\n📊 Found \(totalFound) total results (showing \(limitedResults.count) for efficiency)")
+                    print("💡 For more results: use --limit \(totalFound) or --limit 50")
+                } else {
+                    print("\n📊 Found \(totalFound) results")
+                }
 
                 // Show filter information
                 var filterInfo: [String] = []
@@ -150,12 +175,6 @@ struct SosumiCLI: AsyncParsableCommand {
 
                 if !filterInfo.isEmpty {
                     print("🔍 Applied filters: \(filterInfo.joined(separator: ", "))")
-                }
-
-                if let limit = limit, limit < searchResults.count {
-                    print("📊 Showing top \(limit) results")
-                } else {
-                    print("📊 Found \(searchResults.count) results")
                 }
 
             } catch {

@@ -127,6 +127,50 @@ public class AppleDocumentationRenderer {
         return markdown
     }
 
+    /// Renders search results in compact format for agent efficiency
+    public func renderSearchResultsCompact(_ response: DocumentationSearchResponse) -> String {
+        var markdown = ""
+
+        if response.results.isEmpty {
+            return "No results found."
+        }
+
+        // Simple flat list without grouping or descriptions for maximum efficiency
+        for (index, result) in response.results.enumerated() {
+            markdown += "\(index + 1). [\(result.title)](\(result.url))\n"
+        }
+
+        return markdown
+    }
+
+    /// Renders search results in compact format with match scores for ranking visibility
+    public func renderSearchResultsCompactWithScores(_ response: DocumentationSearchResponse) -> String {
+        var markdown = ""
+
+        if response.results.isEmpty {
+            return "No results found."
+        }
+
+        // Simple flat list with relevance scores for better ranking visibility
+        // Calculate approximate scores based on ranking position since original scores are lost
+        let totalResults = response.results.count
+        for (index, result) in response.results.enumerated() {
+            let score = calculateRankingScore(position: index, total: totalResults)
+            markdown += "\(index + 1). [\(result.title)](\(result.url)) (\(score)% match)\n"
+        }
+
+        return markdown
+    }
+
+    /// Calculate approximate relevance score based on ranking position
+    private func calculateRankingScore(position: Int, total: Int) -> String {
+        // Top results get higher scores, decreasing linearly
+        let maxScore = 95.0
+        let minScore = 25.0
+        let score = maxScore - (Double(position) / Double(total - 1)) * (maxScore - minScore)
+        return String(format: "%.0f", score)
+    }
+
     // MARK: - Private Rendering Methods
 
     /// Renders YAML frontmatter

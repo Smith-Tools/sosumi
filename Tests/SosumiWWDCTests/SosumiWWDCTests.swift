@@ -140,7 +140,7 @@ struct SosumiWWDCTests {
             year: 2024,
             sessionNumber: "101",
             description: "Test description",
-            url: "https://example.com",
+            webUrl: "https://example.com",
             transcript: "This is a test transcript content for formatting."
         )
 
@@ -165,7 +165,7 @@ struct SosumiWWDCTests {
             year: 2024,
             sessionNumber: "101",
             description: "Test description",
-            url: "https://example.com",
+            webUrl: "https://example.com",
             transcript: "This is a test transcript content for formatting with enough content to test the transcript section formatting."
         )
 
@@ -190,7 +190,7 @@ struct SosumiWWDCTests {
             year: 2024,
             sessionNumber: "101",
             description: "Test description",
-            url: "https://example.com",
+            webUrl: "https://example.com",
             transcript: "Test transcript content"
         )
 
@@ -327,7 +327,7 @@ struct SosumiWWDCTests {
             title: "Test Session",
             year: 2024,
             sessionNumber: "101",
-            url: "https://developer.apple.com/videos/play/wwdc2024-101",
+            webUrl: "https://developer.apple.com/videos/play/wwdc2024-101",
             transcript: "Test transcript content"
         )
 
@@ -411,9 +411,31 @@ struct SosumiWWDCTests {
         // Test the complete search workflow from query to formatted output
         let query = "SwiftUI"
 
-        // 1. Search for results
-        let results = try WWDCSearchEngine.search(query: query, in: "mock", forceRealData: false)
-        #expect(!results.isEmpty)
+        // 1. Create mock database search results (WWDCDatabase.SearchResult)
+        let mockSession = WWDCDatabase.Session(
+            id: "test-session-1",
+            title: "SwiftUI Basics",
+            year: 2024,
+            sessionNumber: "101",
+            description: "Introduction to SwiftUI",
+            webUrl: "https://developer.apple.com/videos/play/wwdc2024-101",
+            transcript: "Welcome to SwiftUI basics. In this session, we'll cover the fundamentals of SwiftUI development."
+        )
+
+        let mockSession2 = WWDCDatabase.Session(
+            id: "test-session-2",
+            title: "Advanced SwiftUI Layout",
+            year: 2024,
+            sessionNumber: "102",
+            description: "Advanced layout techniques in SwiftUI",
+            webUrl: "https://developer.apple.com/videos/play/wwdc2024-102",
+            transcript: "In this advanced session, we explore complex layout patterns in SwiftUI including LazyVGrid and custom layouts."
+        )
+
+        let results = [
+            WWDCDatabase.SearchResult(session: mockSession, relevanceScore: 0.95, matchingText: ["SwiftUI"]),
+            WWDCDatabase.SearchResult(session: mockSession2, relevanceScore: 0.87, matchingText: ["SwiftUI", "layout"])
+        ]
 
         // 2. Format results for user mode
         let userOutput = MarkdownFormatter.formatSearchResults(

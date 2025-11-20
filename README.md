@@ -124,10 +124,22 @@ swift run sosumi docs "SwiftUI" --limit 5
 
 ### Apple Documentation Search (live network)
 
-- `sosumi docs "SwiftUI layout" --limit 5`
-- `sosumi doc swiftui/view`
-- `sosumi doc "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"`
-- `sosumi doc "doc://design/human-interface-guidelines/shareplay"`
+```bash
+# Basic search
+sosumi docs "SwiftUI layout" --limit 5
+
+# Intent-based search (recommended for agents)
+sosumi docs "how to animate" --intent example      # Show code examples
+sosumi docs "explain animations" --intent explain  # Get explanations
+sosumi docs "animation API" --intent reference     # API reference
+sosumi docs "learn animations" --intent learn      # Learning content
+sosumi docs "SwiftUI" --intent all                 # All content types
+
+# Fetch specific pages
+sosumi doc swiftui/view
+sosumi doc "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"
+sosumi doc "doc://design/human-interface-guidelines/shareplay"
+```
 
 ### Fetch Specific Documentation Pages
 

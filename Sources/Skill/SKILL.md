@@ -71,33 +71,88 @@ Sosumi is automatically invoked when queries contain any of:
 
 ## Quick Start
 
+### 🎯 **Decision Tree for Agents**
+
+**1. Do you have a specific Apple URL?**
 ```bash
-# Combined docs + WWDC search (default)
-/skill sosumi search "SwiftUI animations"
-
-# Documentation-only search
-/skill sosumi search "URLSession metrics" --type docs
-/skill sosumi docs "Combine scheduler" --limit 3
-
-# Fetch a specific documentation page
-/skill sosumi doc swiftui/view
-/skill sosumi doc groupactivities/drawing_content_in_a_group_session --format markdown
-/skill sosumi doc "https://developer.apple.com/documentation/visionos/presenting-windows-and-spaces"
-/skill sosumi doc "doc://design/human-interface-guidelines/shareplay"
-
-# Search WWDC content
-/skill sosumi wwdc "GroupActivities"
-
-# Search for RealityKit/Timeline content
-/skill sosumi search "Reality Composer Pro timeline animation"
-/skill sosumi wwdc "RealityComposer Pro"
-
-# Update bundled data
-/skill sosumi update --force
-
-# Build search indexes
-/skill sosumi index
+/skill sosumi doc "https://developer.apple.com/documentation/..."
+# MOST EFFICIENT - Direct access
 ```
+
+**2. Need to search for documentation?**
+```bash
+/skill sosumi docs "your topic" --format compact-scores --limit 10
+# Uses comprehensive search with efficient defaults
+```
+
+**3. Have a specific WWDC session ID?**
+```bash
+/skill sosumi session wwdc2025-317
+# Gets full transcript (offline, fast)
+```
+
+**4. Broad search across docs + WWDC?**
+```bash
+/skill sosumi search "your topic" --limit 15
+# Combined search with efficient limits
+```
+
+### 📋 **Best Practices**
+
+```bash
+# 🎯 MOST EFFICIENT PATTERNS (Recommended for Agents)
+
+# When you have a specific Apple URL:
+/skill sosumi doc "https://developer.apple.com/documentation/groupactivities/joining-and-managing-a-shared-activity"
+
+# When you need to search for documentation:
+/skill sosumi docs "shared experiences" --format compact-scores --limit 10
+
+# When you have a specific WWDC session ID:
+/skill sosumi session wwdc2025-317
+
+# Combined search (docs + WWDC):
+/skill sosumi search "SharePlay nearby" --limit 15
+
+# 📚 DOCUMENTATION SEARCH
+/skill sosumi docs "SwiftUI animations" --format compact-scores
+/skill sosumi docs "URLSession metrics" --limit 5
+/skill sosumi docs "Combine scheduler" --format compact
+
+# 🎥 WWDC CONTENT (Offline Transcripts Available)
+/skill sosumi wwdc "GroupActivities"  # Search session metadata
+/skill sosumi session wwdc2023-1004  # Get full transcript (offline)
+
+# 🔍 EFFICIENCY TIPS
+# Use --format compact-scores for token efficiency + relevance
+# Use --limit <number> to control result count
+# Direct URLs are most efficient when available
+# WWDC transcripts are offline and fast
+```
+
+### ⚠️ **Troubleshooting Missing Content**
+
+**Session ID not found?**
+```bash
+# Session format: wwdcYYYY-##### (5-digit session number)
+/skill sosumi session wwdc2025-317    # ✅ Correct format
+/skill sosumi session wwdc2025-9999   # ❌ Wrong format (too many digits)
+/skill sosumi session wwdc2025-999    # ❌ Session doesn't exist
+```
+
+**Documentation URL not working?**
+```bash
+# Try removing query parameters or using path-only:
+/skill sosumi doc "/documentation/groupactivities/joining-and-managing-a-shared-activity"
+
+# Or search instead:
+/skill sosumi docs "shared experiences groupactivities" --format compact
+```
+
+**Error messages mean:**
+- "Session not found" = Session ID doesn't exist in the database
+- "Documentation not found" = URL path is incorrect or content removed
+- "No results found" = Search returned nothing (try different terms)
 
 ### Platform Naming Reference
 
@@ -163,41 +218,66 @@ The `search` command defaults to a **combined view** (Apple docs + WWDC). Use `-
 
 #### Documentation Search (`docs`)
 ```bash
-/skill sosumi docs <query> [--limit <number>] [--intent <intent>] [--type <type>] [--requires <platforms>] [--time-estimate <minutes>]
+/skill sosumi docs <query> [--limit <number>] [--format <format>] [--intent <intent>] [--type <type>] [--requires <platforms>] [--time-estimate <minutes>]
 ```
 
-Runs the live Apple documentation search with **intent-based filtering**. Use when you need targeted documentation without knowing content type terminology.
+Runs the live Apple documentation search with **intent-based filtering** and **agent-optimized efficiency**. Use when you need targeted documentation without knowing content type terminology.
 
-**🎯 Intent-Based Filtering (NEW - Agent-Friendly):**
+**🚀 Agent Efficiency Features (NEW):**
+- **Smart default limit**: 15 results (96% token savings vs unlimited)
+- **Compact formats**: Maximum token efficiency for agent consumption
+- **Relevance scores**: See result quality at a glance
+- **"More results" hints**: Know when to request more
+
+**🎯 Intent-Based Filtering:**
 - `--intent <example|explain|reference|learn|all>` - Express what you want to accomplish
 - **Automatic intent detection** - No flags needed for most queries
 - **Smart ranking** - Results ranked by relevance to your intent
 
-**🔧 Expert Mode Filtering (Advanced):**
+**📄 Output Formats:**
+- `--format markdown` (default): Full structured output with headings
+- `--format compact`: Token-efficient flat list (57% additional savings)
+- `--format compact-scores`: Compact with relevance scores (recommended)
+- `--format json`: Structured data for automation
+
+**🔧 Expert Mode Filtering:**
 - `--type <article|sampleCode|symbol|tutorial>` - Filter by content type
 - `--requires <ios14,macos12>` - Require specific platform support
 - `--time-estimate <15>` - Limit to content under X minutes
 
-**Examples:**
+**🎯 Agent-Optimized Examples:**
 ```bash
-# Intent-based (recommended for agents)
-/skill sosumi docs "how to animate"                    # Auto-detects example intent
-/skill sosumi docs "animation examples" --intent example  # Find working code
-/skill sosumi docs "explain animations" --intent explain  # Understand concepts
-/skill sosumi docs "animation API" --intent reference     # Technical details
-/skill sosumi docs "learn animations" --intent learn       # Step-by-step tutorials
+# Most efficient for agents (recommended)
+/skill sosumi docs "animation" --format compact-scores  # 15 results with scores
+/skill sosumi docs "SwiftUI layout" --limit 10          # Precise result count
+/skill sosumi docs "how to animate" --format compact     # Maximum efficiency
+
+# Intent-based with efficiency
+/skill sosumi docs "animation examples" --intent example --format compact-scores
+/skill sosumi docs "explain animations" --intent explain --limit 8
+/skill sosumi docs "animation API" --intent reference --format compact
+
+# When you need comprehensive results
+/skill sosumi docs "SwiftUI" --limit 50                    # More results when needed
+/skill sosumi docs "all frameworks" --limit 100           # Large search with efficiency
 
 # Smart defaults work automatically
-/skill sosumi docs "SwiftUI animation"   # Detects intent, ranks appropriately
-/skill sosumi docs "Button example"       # Boosts sample code automatically
+/skill sosumi docs "SwiftUI animation"   # Auto-detects intent, uses efficient defaults
+/skill sosumi docs "Button example"       # Boosts sample code, compact format
 
-# Expert mode (when you know content types)
-/skill sosumi docs "animation" --type sampleCode  # Direct type filtering
+# Expert mode with efficiency
+/skill sosumi docs "animation" --type sampleCode --format compact-scores
 
 # Platform and time filtering
-/skill sosumi docs "widgets" --requires ios17
-/skill sosumi docs "SwiftUI" --intent learn --time-estimate 15
+/skill sosumi docs "widgets" --requires ios17 --limit 10
+/skill sosumi docs "SwiftUI" --intent learn --time-estimate 15 --format compact
 ```
+
+**💡 Token Efficiency Tips:**
+- Start with `--format compact-scores --limit 15` for optimal token usage
+- Use `--limit <number>` instead of default when you know exactly what you need
+- `--format compact-scores` gives you both efficiency AND quality indicators
+- The system shows "X more results available" when you need comprehensive coverage
 
 #### Documentation Fetch
 ```bash
