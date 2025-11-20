@@ -117,20 +117,34 @@ public class MarkdownFormatter {
         let session = result.session
         var output = ""
 
-        output += "\(index). **\(session.title)** (\(session.year))\n"
-
-        // Add metadata
-        if let duration = session.duration {
-            output += "   Duration: \(formatDuration(duration))\n"
-        }
-
-        // Mode-specific content
+        // Mode-specific formatting
         switch mode {
         case .compact:
-            output += formatCompactModeContent(result)
+            // Compact format: one efficient line with canonical session ID
+            let canonicalId = "wwdc\(session.year)-\(session.sessionNumber)"
+            let durationStr = session.duration.map { formatDuration($0) } ?? "duration unknown"
+            output += "\(index). **\(session.title)** (\(durationStr))\n"
+            output += "   \(canonicalId) | "
+
+            // Add topics
+            let topics = extractKeyTopics(from: session)
+            output += topics.joined(separator: " • ")
+            output += "\n"
+
         case .user:
+            // User format: title + year + duration + snippet
+            output += "\(index). **\(session.title)** (\(session.year))\n"
+            if let duration = session.duration {
+                output += "   Duration: \(formatDuration(duration))\n"
+            }
             output += formatUserModeContent(result)
+
         case .agent:
+            // Agent format: title + year + duration + full metadata
+            output += "\(index). **\(session.title)** (\(session.year))\n"
+            if let duration = session.duration {
+                output += "   Duration: \(formatDuration(duration))\n"
+            }
             output += formatAgentModeContent(result)
         }
 
@@ -203,23 +217,6 @@ public class MarkdownFormatter {
         return output
     }
 
-    private static func formatCompactModeContent(_ result: WWDCDatabase.SearchResult) -> String {
-        let session = result.session
-        var output = ""
-
-        // Extract key topics from description/title
-        let topics = extractKeyTopics(from: session)
-        output += "   🎯 \(topics.joined(separator: " • "))\n"
-
-        // One-line format: ID • duration • topics
-        if let duration = session.duration {
-            output += "   📍 \(session.sessionNumber) • \(formatDuration(duration)) • \(session.year)\n"
-        } else {
-            output += "   📍 \(session.sessionNumber) • \(session.year)\n"
-        }
-
-        return output
-    }
 
     private static func extractKeyTopics(from session: WWDCDatabase.Session) -> [String] {
         var topics: [String] = []
