@@ -65,6 +65,8 @@ Sosumi is automatically invoked when queries contain any of:
 /skill sosumi search "your query"
 /skill sosumi wwdc "topic"
 /skill sosumi doc framework/api
+/skill sosumi doc "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"
+/skill sosumi doc "doc://com.apple.documentation/videos/play/wwdc2024/10201"
 ```
 
 ## Quick Start
@@ -80,6 +82,8 @@ Sosumi is automatically invoked when queries contain any of:
 # Fetch a specific documentation page
 /skill sosumi doc swiftui/view
 /skill sosumi doc groupactivities/drawing_content_in_a_group_session --format markdown
+/skill sosumi doc "https://developer.apple.com/documentation/visionos/presenting-windows-and-spaces"
+/skill sosumi doc "doc://design/human-interface-guidelines/shareplay"
 
 # Search WWDC content
 /skill sosumi wwdc "GroupActivities"
@@ -176,6 +180,12 @@ Runs the live Apple documentation search directly (same as `sosumi docs`). Use w
 
 # Get Swift Language Guide
 /skill sosumi doc swift/language-guide
+
+# Pass a full Apple URL (quote it if there are special characters)
+/skill sosumi doc "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"
+
+# Use doc:// identifiers copied from Apple docs
+/skill sosumi doc "doc://com.apple.documentation/videos/play/wwdc2024/10201"
 
 # Get in JSON format
 /skill sosumi doc combine/publisher --format json

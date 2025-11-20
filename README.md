@@ -124,16 +124,10 @@ swift run sosumi docs "SwiftUI" --limit 5
 
 ### Apple Documentation Search (live network)
 
-```bash
-# Search across all Apple frameworks
-sosumi docs "SwiftUI layout" --limit 5
-
-# Filter by result type
-sosumi docs "AnimationPlaybackController" --type article
-
-# Reduce latency / tokens by limiting hits
-sosumi docs "GroupActivities" --limit 3
-```
+- `sosumi docs "SwiftUI layout" --limit 5`
+- `sosumi doc swiftui/view`
+- `sosumi doc "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"`
+- `sosumi doc "doc://design/human-interface-guidelines/shareplay"`
 
 ### Fetch Specific Documentation Pages
 
