@@ -63,14 +63,15 @@ cd "$SOSUMI_SOURCE"
 cp README.md "$LOCAL_SKILL_DIR/reference.md" 2>/dev/null || echo "README.md not found"
 
 # Install database to skill data directory
-echo "🗄️  Installing database to skill..."
+# Verify database exists in expected location (do NOT bundle in skill)
+echo "🗄️  Verifying database installation..."
 if [ -f "$DB_DIR/wwdc.db" ]; then
-    cp "$DB_DIR/wwdc.db" "$LOCAL_SKILL_DIR/data/"
-    echo "✅ Database copied to skill data directory"
-    echo "   • Database size: $(du -h "$LOCAL_SKILL_DIR/data/wwdc.db" | cut -f1)"
+    echo "✅ Database found at $DB_DIR/wwdc.db"
+    echo "   • Database size: $(du -h "$DB_DIR/wwdc.db" | cut -f1)"
 else
     echo "⚠️  Database not found at $DB_DIR/wwdc.db"
     echo "   WWDC search functionality will not work until database is installed"
+    echo "   Run: ./scripts/setup-database.sh to install the database"
 fi
 
 # Create working search script
@@ -284,24 +285,38 @@ case "$COMMAND" in
 esac
 EOF
 chmod +x "$LOCAL_SKILL_DIR/scripts/search.sh"
-
-# Create setup script for database
+# Create setup script for database (copied from external source)
 cat > "$LOCAL_SKILL_DIR/scripts/setup-database.sh" << EOF
 #!/bin/bash
-# Setup database for sosumi skill
-SKILL_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
-DB_DIR="\$HOME/.claude/resources/databases"
+# Setup database for sosumi skill - download from external source
+DB_DIR="$HOME/.claude/resources/databases"
+GITHUB_REPO="Smith-Tools/sosumi-data-private"
+DB_FILE="wwdc.db"
+DB_URL="https://github.com/$GITHUB_REPO/releases/latest/download/$DB_FILE"
 
 echo "Setting up sosumi database..."
-mkdir -p "\$DB_DIR"
+mkdir -p "$DB_DIR"
 
-if [ -f "\$SKILL_DIR/data/wwdc.db" ]; then
-    cp "\$SKILL_DIR/data/wwdc.db" "\$DB_DIR/"
-    echo "✅ Database copied to \$DB_DIR/wwdc.db"
+if [ -f "$DB_DIR/$DB_FILE" ]; then
+    echo "✅ Database already exists at $DB_DIR/$DB_FILE"
+    echo "   Database size: $(du -h "$DB_DIR/$DB_FILE" | cut -f1)"
 else
-    echo "❌ Database not found in skill data directory"
-    echo "   Please download from GitHub releases"
+    echo "📥 Downloading database from $GITHUB_REPO..."
+    if command -v curl >/dev/null 2>&1; then
+        curl -L "$DB_URL" -o "$DB_DIR/$DB_FILE"
+        echo "✅ Database downloaded to $DB_DIR/$DB_FILE"
+    elif command -v wget >/dev/null 2>&1; then
+        wget "$DB_URL" -O "$DB_DIR/$DB_FILE"
+        echo "✅ Database downloaded to $DB_DIR/$DB_FILE"
+    else
+        echo "❌ Neither curl nor wget available. Please download manually:"
+        echo "   URL: $DB_URL"
+        echo "   Destination: $DB_DIR/$DB_FILE"
+        exit 1
+    fi
 fi
+EOF
+chmod +x "$LOCAL_SKILL_DIR/scripts/setup-database.sh"
 EOF
 chmod +x "$LOCAL_SKILL_DIR/scripts/setup-database.sh"
 
