@@ -74,7 +74,7 @@ else
     echo "   Run: ./scripts/setup-database.sh to install the database"
 fi
 
-# Create working search script
+# Create working search script with enhanced diagnostics and logging
 echo "🔧 Creating working search script..."
 cat > "$LOCAL_SKILL_DIR/scripts/search.sh" << 'EOF'
 #!/bin/bash
@@ -84,6 +84,43 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_DOCS_LIMIT="${SOSUMI_DOCS_LIMIT:-5}"
 DEFAULT_WWDC_LIMIT="${SOSUMI_WWDC_LIMIT:-6}"
 DEFAULT_WWDC_VERBOSITY="${SOSUMI_WWDC_VERBOSITY:-compact}"
+SOSUMI_CACHE_DIR="${HOME}/.sosumi/cache"
+SOSUMI_LOG_DIR="${HOME}/.sosumi/logs"
+
+# Initialize directories
+mkdir -p "$SOSUMI_CACHE_DIR" 2>/dev/null || true
+mkdir -p "$SOSUMI_LOG_DIR" 2>/dev/null || true
+
+log_error() {
+    local error_msg="$1"
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "$timestamp - $error_msg" >> "$SOSUMI_LOG_DIR/errors.log" 2>/dev/null || true
+}
+
+diagnose_setup() {
+    local issues=()
+
+    # Check binary exists
+    if [ ! -f "$SOSUMI_BIN" ]; then
+        issues+=("❌ Binary not found: $SOSUMI_BIN")
+    elif [ ! -x "$SOSUMI_BIN" ]; then
+        issues+=("❌ Binary not executable (permission issue)")
+        issues+=("💡 Try: chmod +x $SOSUMI_BIN")
+    fi
+
+    # Check WWDC database for WWDC commands
+    if [ ! -f "$HOME/.sosumi/wwdc.db" ]; then
+        issues+=("❌ WWDC database missing: $HOME/.sosumi/wwdc.db")
+        issues+=("💡 Run: ~/.claude/skills/sosumi/scripts/setup-database.sh")
+    fi
+
+    if [ ${#issues[@]} -gt 0 ]; then
+        printf '%s\n' "${issues[@]}"
+        return 1
+    fi
+
+    return 0
+}
 
 find_sosumi() {
     if command -v sosumi >/dev/null 2>&1; then
@@ -102,7 +139,17 @@ find_sosumi() {
 SOSUMI_BIN="$(find_sosumi)"
 
 if [ -z "$SOSUMI_BIN" ]; then
-    echo "❌ Sosumi binary not found. Re-run deploy-skill.sh."
+    echo "❌ Sosumi binary not found at: $SCRIPT_DIR/sosumi"
+    echo "💡 Re-run deploy-skill.sh or check installation"
+    log_error "Binary not found: $SCRIPT_DIR/sosumi"
+    exit 1
+fi
+
+# Verify binary is executable
+if ! [ -x "$SOSUMI_BIN" ]; then
+    echo "❌ Sosumi binary not executable (permission issue)"
+    echo "💡 Run: chmod +x $SOSUMI_BIN"
+    log_error "Binary not executable: $SOSUMI_BIN"
     exit 1
 fi
 
@@ -110,9 +157,69 @@ run_cli() {
     "$SOSUMI_BIN" "$@"
 }
 
+extract_wwdc_session_id() {
+    local url="$1"
+
+    # Match patterns like:
+    # https://developer.apple.com/videos/play/wwdc2023/10087/
+    # https://developer.apple.com/videos/play/wwdc2024-10150
+    # https://developer.apple.com/videos/play/tech-talks-110338
+
+    if [[ "$url" =~ developer\.apple\.com/videos/play/([a-z0-9-]+/?[0-9]+) ]]; then
+        local extracted="${BASH_REMATCH[1]}"
+        # Normalize: remove trailing slash and format as wwdcYYYY-ID
+        extracted="${extracted%/}"
+        # If it's just tech-talks-XXXXX format, keep as is
+        if [[ "$extracted" =~ ^tech-talks- ]]; then
+            echo "$extracted"
+        else
+            # Convert wwdc2023/10087 to wwdc2023-10087
+            echo "${extracted//\//-}"
+        fi
+        return 0
+    fi
+
+    return 1
+}
+
+is_wwdc_url() {
+    local query="$1"
+    [[ "$query" =~ developer\.apple\.com/videos/play/ ]]
+}
+
+is_doc_identifier() {
+    local query="$1"
+
+    # Check if it's a URL (http://, https://, //)
+    if [[ "$query" =~ ^(https?://|//) ]]; then
+        return 0
+    fi
+
+    # Check if it's a doc:// URL
+    if [[ "$query" =~ ^doc:// ]]; then
+        return 0
+    fi
+
+    # Check if it's a path-like identifier (design/*, documentation/*, swiftui/*, etc.)
+    # Must have at least one slash and not be just words
+    if [[ "$query" =~ ^[a-z0-9-]+/[a-z0-9/-]+ ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
 run_docs_section() {
     local query="$1"
     local limit="$2"
+
+    # Smart routing: if it looks like a specific page identifier/URL, fetch it directly
+    if is_doc_identifier "$query"; then
+        run_cli doc "$query"
+        return
+    fi
+
+    # Otherwise, perform search
     local args=(docs "$query")
     if [ -n "$limit" ]; then
         args+=(--limit "$limit")
@@ -120,6 +227,7 @@ run_docs_section() {
 
     if ! run_cli "${args[@]}"; then
         echo "⚠️ Apple documentation search failed. Check network connectivity."
+        log_error "Docs search failed: $query"
     fi
 }
 
@@ -127,13 +235,24 @@ run_wwdc_section() {
     local query="$1"
     local limit="$2"
     local verbosity="${3:-$DEFAULT_WWDC_VERBOSITY}"
+
+    # Verify database exists before calling binary
+    if [ ! -f "$HOME/.sosumi/wwdc.db" ]; then
+        echo "⚠️ WWDC database not found at: $HOME/.sosumi/wwdc.db"
+        echo "💡 Run: ~/.claude/skills/sosumi/scripts/setup-database.sh"
+        log_error "WWDC database missing"
+        return 1
+    fi
+
     local args=(wwdc "$query" --verbosity "$verbosity")
     if [ -n "$limit" ]; then
         args+=(--limit "$limit")
     fi
 
     if ! run_cli "${args[@]}"; then
-        echo "⚠️ WWDC search failed. Ensure the WWDC database bundle is installed."
+        echo "⚠️ WWDC search failed. Database may be corrupted."
+        log_error "WWDC search failed: $query"
+        return 1
     fi
 }
 
@@ -141,6 +260,10 @@ run_combined_search() {
     local query="$1"
     local doc_limit="${2:-$DEFAULT_DOCS_LIMIT}"
     local wwdc_limit="${3:-$DEFAULT_WWDC_LIMIT}"
+
+    # Note: WWDC URLs in search should return compact results + session ID
+    # If agent wants full transcript, they should use: search.sh transcript <url>
+    # This keeps search efficient and discovery-focused
 
     echo "🔎 Sosumi Search: \"$query\""
     echo "=================================================="
@@ -150,7 +273,7 @@ run_combined_search() {
     echo "🎥 WWDC Sessions"
     run_wwdc_section "$query" "$wwdc_limit" "$DEFAULT_WWDC_VERBOSITY"
     echo
-    echo "💡 Tip: add --type docs or --type wwdc to limit future searches (or set SOSUMI_DOCS_LIMIT / SOSUMI_WWDC_LIMIT)."
+    echo "💡 Tip: Use 'transcript <url>' or 'transcript <session-id>' to get full transcripts"
 }
 
 run_search_command() {
@@ -219,6 +342,7 @@ run_search_command() {
 show_usage() {
     cat <<'USAGE'
 Usage:
+  search.sh transcript <url-or-id>     # Get WWDC transcript (⭐ preferred for videos)
   search.sh search <query> [--type docs|wwdc|combined] [--limit N]
   search.sh docs <query> [--limit N]
   search.sh doc <path> [--format markdown|json]
@@ -228,13 +352,79 @@ Usage:
   search.sh stats
   search.sh test
   search.sh update
+  search.sh diagnose                   # Check installation and health
   search.sh <query>                # Combined search (docs + WWDC) using defaults
+
+Transcript Command (Layer 3 - Primary interface for agents):
+  Accepts WWDC video URLs and session IDs:
+  - search.sh transcript https://developer.apple.com/videos/play/wwdc2023/10087/
+  - search.sh transcript wwdc2023-10087
+  - search.sh transcript tech-talks-110338
 
 Environment overrides:
   SOSUMI_DOCS_LIMIT       Default docs results (default: 5)
   SOSUMI_WWDC_LIMIT       Default WWDC results (default: 6)
   SOSUMI_WWDC_VERBOSITY   WWDC verbosity (default: compact)
 USAGE
+}
+
+show_diagnostics() {
+    echo "🔍 Sosumi Diagnostics"
+    echo "=================================================="
+
+    # Binary check
+    if [ -f "$SOSUMI_BIN" ]; then
+        echo "✅ Binary found: $SOSUMI_BIN"
+        if [ -x "$SOSUMI_BIN" ]; then
+            echo "✅ Binary is executable"
+            local size=$(stat -f%z "$SOSUMI_BIN" 2>/dev/null || stat -c%s "$SOSUMI_BIN" 2>/dev/null)
+            echo "📏 Binary size: $(( size / 1024 / 1024 )) MB"
+        else
+            echo "❌ Binary not executable (fix: chmod +x $SOSUMI_BIN)"
+        fi
+    else
+        echo "❌ Binary not found: $SOSUMI_BIN"
+    fi
+
+    echo ""
+
+    # Database check
+    if [ -f "$HOME/.sosumi/wwdc.db" ]; then
+        echo "✅ WWDC database found: $HOME/.sosumi/wwdc.db"
+        local db_size=$(stat -f%z "$HOME/.sosumi/wwdc.db" 2>/dev/null || stat -c%s "$HOME/.sosumi/wwdc.db" 2>/dev/null)
+        echo "📏 Database size: $(( db_size / 1024 / 1024 )) MB"
+    else
+        echo "❌ WWDC database not found: $HOME/.sosumi/wwdc.db"
+        echo "💡 Run: ~/.claude/skills/sosumi/scripts/setup-database.sh"
+    fi
+
+    echo ""
+
+    # Cache check
+    if [ -d "$SOSUMI_CACHE_DIR" ]; then
+        local cache_count=$(find "$SOSUMI_CACHE_DIR" -type f 2>/dev/null | wc -l)
+        echo "📦 Cache files: $cache_count"
+        if [ "$cache_count" -gt 0 ]; then
+            local cache_size=$(du -sh "$SOSUMI_CACHE_DIR" 2>/dev/null | cut -f1)
+            echo "💾 Cache size: $cache_size"
+        fi
+    fi
+
+    echo ""
+
+    # Error log check
+    if [ -f "$SOSUMI_LOG_DIR/errors.log" ]; then
+        local error_count=$(wc -l < "$SOSUMI_LOG_DIR/errors.log" 2>/dev/null || echo 0)
+        echo "📋 Error log entries: $error_count"
+        if [ "$error_count" -gt 0 ]; then
+            echo "   Recent errors:"
+            tail -3 "$SOSUMI_LOG_DIR/errors.log" | sed 's/^/   /'
+        fi
+    else
+        echo "✅ No errors logged"
+    fi
+
+    echo "=================================================="
 }
 
 COMMAND="${1:-}"
@@ -245,6 +435,33 @@ if [ -z "$COMMAND" ]; then
 fi
 
 case "$COMMAND" in
+    transcript)
+        shift
+        if [ $# -eq 0 ]; then
+            echo "❌ Missing WWDC URL or session ID."
+            echo "Usage: search.sh transcript <url-or-session-id>"
+            echo ""
+            echo "Examples:"
+            echo "  search.sh transcript https://developer.apple.com/videos/play/wwdc2023/10087/"
+            echo "  search.sh transcript wwdc2023-10087"
+            exit 1
+        fi
+
+        input="$1"
+
+        # If it's a WWDC URL, extract the session ID
+        if is_wwdc_url "$input"; then
+            if session_id=$(extract_wwdc_session_id "$input"); then
+                run_cli session "$session_id" --mode agent
+            else
+                echo "❌ Could not extract session ID from URL: $input"
+                exit 1
+            fi
+        else
+            # Otherwise, treat it as a session ID directly
+            run_cli session "$input" --mode agent
+        fi
+        ;;
     search)
         shift
         run_search_command "$@"
@@ -255,7 +472,8 @@ case "$COMMAND" in
             echo "❌ Missing documentation search query."
             exit 1
         fi
-        run_cli docs "$@"
+        # Use run_docs_section for smart routing (URL detection)
+        run_docs_section "$1" "${2:-}"
         ;;
     doc|fetch)
         shift
@@ -267,6 +485,9 @@ case "$COMMAND" in
         ;;
     wwdc|session|year|stats|test|update)
         run_cli "$@"
+        ;;
+    diagnose)
+        show_diagnostics
         ;;
     combined)
         shift
@@ -325,7 +546,7 @@ cat > "$LOCAL_SKILL_DIR/SKILL.md" << 'EOF'
 ---
 name: sosumi
 description: Search Apple developer documentation and WWDC sessions. Automatically triggers on: SwiftUI, Combine, Core Data, SharePlay, @State, @Published, async/await, UIKit, AppKit, visionOS, iOS development, Apple APIs, WWDC questions.
-allowed-tools: [Bash]
+allowed-tools: [Bash, Read, Write, Glob]
 executables: ["./scripts/search.sh"]
 ---
 
