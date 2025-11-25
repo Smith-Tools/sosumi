@@ -82,7 +82,25 @@ public class AppleDocumentationRenderer {
             }
         }
 
+        // Check if content is suspiciously short
+        if markdown.count < 400 && !(documentation.metadata?.title?.lowercased().contains("overview") ?? false) {
+            markdown += """
+
+⚠️ **Limited Content**
+
+This page has minimal content in the API response. For complete details:
+- Visit the full documentation: \(documentation.url ?? "developer.apple.com")
+- Try: `sosumi docs "\(extractFramework(documentation.metadata?.title ?? ""))"` to browse the parent framework
+"""
+        }
+
         return markdown
+    }
+
+    // Add helper function to extract framework name
+    private func extractFramework(_ title: String) -> String {
+        let parts = title.split(separator: " ")
+        return String(parts.first ?? "")
     }
 
     /// Renders a search result to a brief Markdown format
@@ -90,7 +108,10 @@ public class AppleDocumentationRenderer {
         var markdown = "## [\(result.title)](\(result.url))\n\n"
 
         if let description = result.description {
-            markdown += "\(description)\n\n"
+            let truncated = description.count > 150
+                ? String(description.prefix(150)) + "..."
+                : description
+            markdown += "\(truncated)\n\n"
         }
 
         markdown += "**Type:** \(result.type)\n\n"
@@ -117,7 +138,10 @@ public class AppleDocumentationRenderer {
             for result in results {
                 markdown += "- [\(result.title)](\(result.url))"
                 if let description = result.description {
-                    markdown += " - \(description)"
+                    let truncated = description.count > 150
+                        ? String(description.prefix(150)) + "..."
+                        : description
+                    markdown += " - \(truncated)"
                 }
                 markdown += "\n"
             }

@@ -6,9 +6,10 @@ public class MarkdownFormatter {
     // MARK: - Output Modes
 
     public enum OutputMode {
-        case compact // Quick overview: title + ID + duration + topics
-        case user    // Short snippet + Apple link
-        case agent   // Full transcript + metadata
+        case compact       // Quick overview: title + ID + duration + topics
+        case user          // Short snippet + Apple link
+        case agent         // Full transcript + metadata
+        case compactAgent  // Truncated transcript + structured for AI efficiency
     }
 
     public enum OutputFormat {
@@ -23,13 +24,14 @@ public class MarkdownFormatter {
         _ results: [WWDCDatabase.SearchResult],
         query: String,
         mode: OutputMode = .user,
-        format: OutputFormat = .markdown
+        format: OutputFormat = .markdown,
+        maxTranscriptParagraphs: Int = 2
     ) -> String {
         switch format {
         case .markdown:
-            return formatSearchResultsAsMarkdown(results, query: query, mode: mode)
+            return formatSearchResultsAsMarkdown(results, query: query, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         case .json:
-            return formatSearchResultsAsJSON(results, query: query, mode: mode)
+            return formatSearchResultsAsJSON(results, query: query, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         }
     }
 
@@ -37,13 +39,14 @@ public class MarkdownFormatter {
     public static func formatSession(
         _ session: WWDCDatabase.Session,
         mode: OutputMode = .user,
-        format: OutputFormat = .markdown
+        format: OutputFormat = .markdown,
+        maxTranscriptParagraphs: Int = 2
     ) -> String {
         switch format {
         case .markdown:
-            return formatSessionAsMarkdown(session, mode: mode)
+            return formatSessionAsMarkdown(session, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         case .json:
-            return formatSessionAsJSON(session, mode: mode)
+            return formatSessionAsJSON(session, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         }
     }
 
@@ -66,7 +69,8 @@ public class MarkdownFormatter {
     private static func formatSearchResultsAsMarkdown(
         _ results: [WWDCDatabase.SearchResult],
         query: String,
-        mode: OutputMode
+        mode: OutputMode,
+        maxTranscriptParagraphs: Int = 2
     ) -> String {
         var output = ""
 
@@ -146,6 +150,14 @@ public class MarkdownFormatter {
                 output += "   Duration: \(formatDuration(duration))\n"
             }
             output += formatAgentModeContent(result)
+
+        case .compactAgent:
+            // CompactAgent format: title + relevance + minimal transcript for AI efficiency
+            output += "\(index). **\(session.title)** (\(session.year))\n"
+            if let duration = session.duration {
+                output += "   Duration: \(formatDuration(duration))\n"
+            }
+            output += formatCompactAgentModeContent(result, maxTranscriptParagraphs: 2)
         }
 
         output += "\n"
@@ -179,7 +191,7 @@ public class MarkdownFormatter {
         return output
     }
 
-    private static func formatAgentModeContent(_ result: WWDCDatabase.SearchResult) -> String {
+    private static func formatAgentModeContent(_ result: WWDCDatabase.SearchResult, maxTranscriptParagraphs: Int = 2) -> String {
         let session = result.session
         var output = ""
 
@@ -202,7 +214,7 @@ public class MarkdownFormatter {
         // Include full transcript if available
         if let transcript = session.transcript, !transcript.isEmpty {
             output += "\n   **Transcript:**\n"
-            let paragraphs = transcript.components(separatedBy: "\n\n").prefix(5) // First 5 paragraphs
+            let paragraphs = transcript.components(separatedBy: "\n\n").prefix(maxTranscriptParagraphs) // Respect the limit
             for paragraph in paragraphs {
                 let trimmed = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -217,6 +229,42 @@ public class MarkdownFormatter {
         return output
     }
 
+    private static func formatCompactAgentModeContent(_ result: WWDCDatabase.SearchResult, maxTranscriptParagraphs: Int = 2) -> String {
+        let session = result.session
+        var output = ""
+
+        // Add relevance score as percentage
+        output += "   📊 **Relevance:** \(String(format: "%.0f%%", result.relevanceScore * 100))\n"
+
+        // Brief summary instead of full description
+        if let description = session.description, !description.isEmpty {
+            let summaryLength = min(description.count, 300)
+            let summary = String(description.prefix(summaryLength))
+            output += "   \(summary)\(description.count > 300 ? "..." : "")\n\n"
+        }
+
+        // Top topics only
+        let topics = extractKeyTopics(from: session)
+        if !topics.isEmpty {
+            output += "   🎯 **Topics:** \(topics.prefix(3).joined(separator: ", "))\n\n"
+        }
+
+        // Minimal transcript (capped at maxTranscriptParagraphs)
+        if let transcript = session.transcript, !transcript.isEmpty {
+            let paragraphs = transcript.components(separatedBy: "\n\n").prefix(maxTranscriptParagraphs)
+            for paragraph in paragraphs {
+                let trimmed = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    output += "   > \(trimmed)\n\n"
+                }
+            }
+        }
+
+        // Link to full video
+        output += "   📺 [Watch on Apple Developer](\(session.webUrl ?? "https://developer.apple.com/videos/"))\n"
+
+        return output
+    }
 
     private static func extractKeyTopics(from session: WWDCDatabase.Session) -> [String] {
         var topics: [String] = []
@@ -278,7 +326,7 @@ public class MarkdownFormatter {
         return topics
     }
 
-    private static func formatSessionAsMarkdown(_ session: WWDCDatabase.Session, mode: OutputMode) -> String {
+    private static func formatSessionAsMarkdown(_ session: WWDCDatabase.Session, mode: OutputMode, maxTranscriptParagraphs: Int = 2) -> String {
         var output = ""
 
         output += "# \(session.title)\n\n"
@@ -345,6 +393,37 @@ public class MarkdownFormatter {
                 output += "*Transcript not available*\n\n"
                 output += "Please watch the [full video](\(session.webUrl ?? "#")) for the complete session content.\n\n"
             }
+
+        case .compactAgent:
+            output += "**📺 Watch:** [Apple Developer](\(session.webUrl ?? "#"))\n\n"
+
+            // Brief summary only
+            if let description = session.description, !description.isEmpty {
+                let summaryLength = min(description.count, 300)
+                output += String(description.prefix(summaryLength))
+                if description.count > 300 {
+                    output += "..."
+                }
+                output += "\n\n"
+            }
+
+            // Top 3 topics only
+            let topics = extractKeyTopics(from: session)
+            if !topics.isEmpty {
+                output += "**Topics:** \(topics.prefix(3).joined(separator: ", "))\n\n"
+            }
+
+            // Minimal transcript preview
+            if let transcript = session.transcript, !transcript.isEmpty {
+                output += "## Transcript Preview\n\n"
+                let paragraphs = transcript.components(separatedBy: "\n\n").prefix(2)
+                for paragraph in paragraphs {
+                    let trimmed = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        output += "> \(trimmed)\n\n"
+                    }
+                }
+            }
         }
 
         // Footer
@@ -398,7 +477,8 @@ public class MarkdownFormatter {
     private static func formatSearchResultsAsJSON(
         _ results: [WWDCDatabase.SearchResult],
         query: String,
-        mode: OutputMode
+        mode: OutputMode,
+        maxTranscriptParagraphs: Int = 2
     ) -> String {
         var jsonData: [String: Any] = [
             "query": query,
@@ -439,6 +519,13 @@ public class MarkdownFormatter {
                 sessionData["transcript"] = result.session.transcript
                 sessionData["wordCount"] = result.session.wordCount as Any
                 sessionData["description"] = result.session.description as Any
+
+            case .compactAgent:
+                // Compact version: truncated description and minimal data
+                if let description = result.session.description {
+                    sessionData["description"] = String(description.prefix(200)).appending("...")
+                }
+                sessionData["topics"] = extractKeyTopics(from: result.session).prefix(3)
             }
 
             return sessionData
@@ -449,7 +536,7 @@ public class MarkdownFormatter {
         return formatJSON(jsonData)
     }
 
-    private static func formatSessionAsJSON(_ session: WWDCDatabase.Session, mode: OutputMode) -> String {
+    private static func formatSessionAsJSON(_ session: WWDCDatabase.Session, mode: OutputMode, maxTranscriptParagraphs: Int = 2) -> String {
         var sessionData: [String: Any] = [
             "id": session.id,
             "title": session.title,
@@ -491,6 +578,13 @@ public class MarkdownFormatter {
         case .agent:
             // Agent mode includes full transcript
             sessionData["transcript"] = session.transcript as Any
+
+        case .compactAgent:
+            // CompactAgent mode includes limited data for efficiency
+            if let description = session.description {
+                sessionData["description"] = String(description.prefix(200)).appending("...")
+            }
+            sessionData["topics"] = extractKeyTopics(from: session).prefix(3)
         }
 
         return formatJSON(sessionData)
@@ -546,6 +640,13 @@ public class MarkdownFormatter {
                 // Full info for agent mode
                 sessionData["description"] = session.description as Any
                 sessionData["transcript"] = session.transcript as Any
+
+            case .compactAgent:
+                // Limited info for compact-agent mode
+                if let description = session.description {
+                    sessionData["description"] = String(description.prefix(200)).appending("...")
+                }
+                sessionData["topics"] = extractKeyTopics(from: session).prefix(3)
             }
 
             return sessionData

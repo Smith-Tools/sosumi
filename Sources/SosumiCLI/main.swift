@@ -10,6 +10,7 @@ struct SosumiCLI: AsyncParsableCommand {
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
         version: "1.2.0",
         subcommands: [
+            SearchCommand.self,
             DocsCommand.self,
             WWDCCommand.self,
             SessionCommand.self,
@@ -20,6 +21,406 @@ struct SosumiCLI: AsyncParsableCommand {
             AppleDocCommand.self
         ]
     )
+
+    struct SearchCommand: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "search",
+            abstract: "Intelligent search - auto-routes to docs/WWDC/session based on query"
+        )
+
+        @Argument(help: "Search query, URL, or session ID")
+        var query: String
+
+        @Option(name: .long, help: "Force search type (auto/docs/wwdc/session)")
+        var type: String = "auto"
+
+        @Option(name: .long, help: "Limit number of results")
+        var limit: Int = 15
+
+        @Option(name: .long, help: "Output format: markdown or json")
+        var format: String = "markdown"
+
+        @Option(name: .long, help: "Output mode: user (snippet), agent (full), compact-agent (efficient)")
+        var mode: String = "user"
+
+        @Option(name: .long, help: "Limit transcript to N paragraphs (default: 2)")
+        var limitTranscriptParagraphs: Int = 2
+
+        @Option(name: .long, help: "Minimum relevance score to include (0.0-1.0, default: 0.0)")
+        var minScore: Double = 0.0
+
+        mutating func run() async throws {
+            let route = detectRoute(query: query, forcedType: type)
+
+            switch route {
+            case .documentation(let path):
+                // Delegate to doc command - directly invoke
+                print("📚 Fetching Apple documentation: \(path)")
+                let client = AppleDocumentationClient()
+                let renderer = AppleDocumentationRenderer()
+                let higRenderer = HIGRenderer()
+
+                do {
+                    let source = client.resolveSource(for: path)
+
+                    switch source {
+                    case .documentation(let normalizedPath):
+                        let documentation = try await client.fetchDocumentation(path: normalizedPath)
+                        let content = renderer.renderToMarkdown(documentation)
+                        print(content)
+
+                    case .humanInterfaceGuidelines(let higPath):
+                        let page = try await client.fetchHIGPage(path: higPath)
+                        let sourceURL = "https://developer.apple.com/design/human-interface-guidelines/\(higPath)"
+                        let markdown = higRenderer.renderPage(page, sourceURL: sourceURL)
+                        print(markdown)
+
+                    case .humanInterfaceGuidelinesTableOfContents:
+                        let toc = try await client.fetchHIGTableOfContents()
+                        let markdown = higRenderer.renderTableOfContents(toc)
+                        print(markdown)
+                    }
+
+                } catch {
+                    print("❌ Failed to fetch documentation: \(error)")
+                    print("💡 Try using a path like 'swiftui/view' or a full URL")
+                    print("🔗 Apple Developer documentation: https://developer.apple.com/documentation")
+                }
+
+            case .wwdcSession(let id):
+                // Delegate to session command - use logic directly
+                print("📺 Fetching WWDC session: \(id)")
+                print(String(repeating: "=", count: 50))
+
+                // Validate mode
+                let outputMode: MarkdownFormatter.OutputMode
+                switch mode.lowercased() {
+                case "user":
+                    outputMode = .user
+                case "agent":
+                    outputMode = .agent
+                case "compact", "compact-agent", "compactagent":
+                    outputMode = .compactAgent
+                default:
+                    print("❌ Invalid mode: \(mode). Use 'user', 'agent', or 'compact-agent'.")
+                    throw ExitCode.failure
+                }
+
+                // Validate format
+                let outputFormat: MarkdownFormatter.OutputFormat
+                switch format.lowercased() {
+                case "markdown":
+                    outputFormat = .markdown
+                case "json":
+                    outputFormat = .json
+                default:
+                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                    throw ExitCode.failure
+                }
+
+                do {
+                    if let result = try WWDCSearchEngine.getSessionById(
+                        sessionId: id,
+                        mode: outputMode,
+                        format: outputFormat,
+                        bundlePath: nil,
+                        maxTranscriptParagraphs: limitTranscriptParagraphs
+                    ) {
+                        print(result)
+                    } else {
+                        print("❌ Session not found: \(id)")
+                        print("💡 Check the session ID format (e.g., wwdc2024-10102)")
+                    }
+                } catch {
+                    print("❌ Failed to fetch session: \(error)")
+                }
+
+            case .wwdcSearch(let searchQuery):
+                // Delegate to wwdc command - use logic directly
+                print("🎥 Searching WWDC sessions for: \(searchQuery)")
+                print(String(repeating: "=", count: 50))
+
+                // CRITICAL: Check if bundle exists before attempting search
+                guard BundleManager.bundleExists() else {
+                    BundleManager.presentMissingBundleError(command: "sosumi wwdc")
+                }
+
+                // Validate mode
+                let outputMode: MarkdownFormatter.OutputMode
+                switch mode.lowercased() {
+                case "user":
+                    outputMode = .user
+                case "agent":
+                    outputMode = .agent
+                case "compact", "compact-agent", "compactagent":
+                    outputMode = .compactAgent
+                default:
+                    print("❌ Invalid mode: \(mode). Use 'user', 'agent', or 'compact-agent'.")
+                    throw ExitCode.failure
+                }
+
+                // Validate format
+                let outputFormat: MarkdownFormatter.OutputFormat
+                switch format.lowercased() {
+                case "markdown":
+                    outputFormat = .markdown
+                case "json":
+                    outputFormat = .json
+                default:
+                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                    throw ExitCode.failure
+                }
+
+                do {
+                    // Use new database search
+                    let result = try WWDCSearchEngine.searchWithDatabase(
+                        query: searchQuery,
+                        mode: outputMode,
+                        format: outputFormat,
+                        bundlePath: nil,
+                        limit: limit,
+                        maxTranscriptParagraphs: limitTranscriptParagraphs,
+                        minRelevanceScore: minScore
+                    )
+
+                    print(result)
+                } catch {
+                    // Fallback to legacy search with error handling
+                    print("⚠️  Database search failed, trying legacy search: \(error)")
+
+                    let results = SosumiWWDC.searchWWDC(query: searchQuery)
+
+                    if results.isEmpty {
+                        print("❌ No WWDC sessions found for: \(searchQuery)")
+                        print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
+                        return
+                    }
+
+                    for (index, result) in results.enumerated() {
+                        print("\(index + 1). \(result.title) (\(result.year))")
+                        print("   Score: \(String(format: "%.1f", result.relevanceScore))")
+                        if let segments = result.timeSegments, !segments.isEmpty {
+                            print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
+                        }
+                        print("   \(result.excerpt)")
+                        print()
+                    }
+                }
+
+            case .combined(let searchQuery):
+                // Run both docs and wwdc searches
+                print("🔍 Searching across documentation and WWDC sessions...\n")
+
+                // Split limit between docs and WWDC
+                let docsLimit = max(limit / 2, 5)        // At least 5 docs
+                let wwdcLimit = limit - docsLimit         // Remaining for WWDC
+
+                print("📊 Limits: \(docsLimit) docs, \(wwdcLimit) WWDC sessions\n")
+
+                // Search docs first
+                print("📚 Apple Documentation:")
+                print(String(repeating: "-", count: 50))
+
+                print("🔍 Searching Apple documentation for: \(searchQuery)")
+                let client = AppleDocumentationClient()
+                let renderer = AppleDocumentationRenderer()
+
+                do {
+                    // Build filter from command line options
+                    var filter = ContentTypeFilter()
+
+                    // Perform comprehensive search with filtering
+                    let allResults = try await client.comprehensiveSearch(
+                        query: searchQuery,
+                        limit: docsLimit,  // Changed from limit
+                        filter: filter
+                    )
+
+                    let totalFound = allResults.count
+                    let limitedResults = allResults  // Already limited by API call
+
+                    if limitedResults.isEmpty {
+                        print("❌ No Apple documentation found for: \(searchQuery)")
+                        print("💡 Try: sosumi doc \"\(searchQuery.lowercased())\" for direct framework access")
+                        print("💡 Or try: SharePlay, SwiftUI, Combine, GroupActivities")
+                    } else {
+                        // Create response for rendering
+                        let renderedResponse = DocumentationSearchResponse(
+                            query: searchQuery,
+                            results: limitedResults,
+                            metadata: [:],
+                            totalFound: totalFound
+                        )
+
+                        // Render search results
+                        let output = renderer.renderSearchResultsCompactWithScores(renderedResponse)
+                        print(output)
+
+                        // Show efficiency information
+                        if totalFound > limitedResults.count {
+                            print("\n📊 Found \(totalFound) total results (showing \(limitedResults.count) for efficiency)")
+                            print("💡 For more results: use --limit \(totalFound) or --limit 50")
+                        } else {
+                            print("\n📊 Found \(totalFound) results")
+                        }
+                    }
+
+                } catch {
+                    print("❌ Search failed: \(error)")
+                    print("💡 This might be a network issue or the API endpoints may have changed")
+                    print("🔗 For Apple Developer documentation, visit: https://developer.apple.com/documentation")
+                }
+
+                print("\n")
+                print("🎥 WWDC Sessions:")
+                print(String(repeating: "-", count: 50))
+
+                // Now search WWDC
+                print("🎥 Searching WWDC sessions for: \(searchQuery)")
+                print(String(repeating: "=", count: 50))
+
+                // CRITICAL: Check if bundle exists before attempting search
+                guard BundleManager.bundleExists() else {
+                    BundleManager.presentMissingBundleError(command: "sosumi wwdc")
+                }
+
+                let wwdcOutputMode: MarkdownFormatter.OutputMode = .user  // Use user mode for combined search
+                let wwdcOutputFormat: MarkdownFormatter.OutputFormat = .markdown
+
+                do {
+                    // Use new database search
+                    let result = try WWDCSearchEngine.searchWithDatabase(
+                        query: searchQuery,
+                        mode: wwdcOutputMode,
+                        format: wwdcOutputFormat,
+                        bundlePath: nil,
+                        limit: wwdcLimit  // Changed from limit
+                    )
+
+                    print(result)
+                } catch {
+                    // Fallback to legacy search with error handling
+                    print("⚠️  Database search failed, trying legacy search: \(error)")
+
+                    let results = SosumiWWDC.searchWWDC(query: searchQuery)
+
+                    if results.isEmpty {
+                        print("❌ No WWDC sessions found for: \(searchQuery)")
+                        print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
+                        return
+                    }
+
+                    for (index, result) in results.enumerated() {
+                        print("\(index + 1). \(result.title) (\(result.year))")
+                        print("   Score: \(String(format: "%.1f", result.relevanceScore))")
+                        if let segments = result.timeSegments, !segments.isEmpty {
+                            print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
+                        }
+                        print("   \(result.excerpt)")
+                        print()
+                    }
+                }
+            }
+        }
+
+        /// Intelligent routing based on query pattern
+        private func detectRoute(query: String, forcedType: String) -> SearchRoute {
+            // If type is forced, use it
+            if forcedType != "auto" {
+                switch forcedType.lowercased() {
+                case "docs":
+                    return .documentation(path: query)
+                case "wwdc":
+                    return .wwdcSearch(query: query)
+                case "session":
+                    return .wwdcSession(id: query)
+                default:
+                    print("⚠️ Unknown type: \(forcedType). Using auto-detection.")
+                }
+            }
+
+            // Detect WWDC video URLs
+            if query.contains("developer.apple.com/videos/play/wwdc") {
+                if let sessionId = extractSessionIdFromVideoUrl(query) {
+                    return .wwdcSession(id: sessionId)
+                }
+            }
+
+            // Detect documentation URLs
+            if query.contains("developer.apple.com/documentation") ||
+               query.contains("developer.apple.com/design") {
+                let path = extractDocPathFromUrl(query)
+                return .documentation(path: path)
+            }
+
+            // Detect WWDC session IDs (format: wwdc2024-10102)
+            if query.range(of: "^(wwdc|tech-talks)\\d{4}-\\d+$", options: .regularExpression) != nil ||
+               query.range(of: "^(wwdc|tech-talks)-\\d+$", options: .regularExpression) != nil {
+                return .wwdcSession(id: query)
+            }
+
+            // Single word or short query = likely framework/API
+            let words = query.split(separator: " ").count
+            if words == 1 {
+                return .documentation(path: query)
+            }
+
+            // Multi-word = combined search (best of both worlds)
+            return .combined(query: query)
+        }
+
+        /// Extract session ID from WWDC video URL
+        /// Example: https://developer.apple.com/videos/play/wwdc2024/10102/ → wwdc2024-10102
+        private func extractSessionIdFromVideoUrl(_ url: String) -> String? {
+            // Pattern: /wwdc2024/10102/ or /wwdc2024-10102/
+            let patterns = [
+                "wwdc(\\d{4})/(\\d+)",  // /wwdc2024/10102
+                "wwdc(\\d{4})-(\\d+)"   // /wwdc2024-10102
+            ]
+
+            for pattern in patterns {
+                if let regex = try? NSRegularExpression(pattern: pattern) {
+                    let range = NSRange(url.startIndex..<url.endIndex, in: url)
+                    if let match = regex.firstMatch(in: url, range: range) {
+                        if match.numberOfRanges >= 3,
+                           let yearRange = Range(match.range(at: 1), in: url),
+                           let idRange = Range(match.range(at: 2), in: url) {
+                            let year = String(url[yearRange])
+                            let id = String(url[idRange])
+                            return "wwdc\(year)-\(id)"
+                        }
+                    }
+                }
+            }
+            return nil
+        }
+
+        /// Extract doc path from full URL
+        /// Example: https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity
+        /// → groupactivities/adding-spatial-persona-support-to-an-activity
+        private func extractDocPathFromUrl(_ url: String) -> String {
+            // Remove protocol and domain
+            var path = url
+            if let range = path.range(of: "developer.apple.com/") {
+                path = String(path[range.upperBound...])
+            }
+
+            // Remove trailing slash
+            if path.hasSuffix("/") {
+                path.removeLast()
+            }
+
+            return path
+        }
+    }
+
+    // MARK: - Route Enum
+    enum SearchRoute {
+        case documentation(path: String)
+        case wwdcSession(id: String)
+        case wwdcSearch(query: String)
+        case combined(query: String)
+    }
 
     struct DocsCommand: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
@@ -749,5 +1150,16 @@ struct SosumiCLI: AsyncParsableCommand {
             let spaced = regex?.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "$1 $2") ?? text
             return spaced.replacingOccurrences(of: "_", with: " ")
         }
+    }
+}
+
+// MARK: - Helper Extension
+extension String {
+    func matches(_ pattern: String) -> Bool {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return false
+        }
+        let range = NSRange(self.startIndex..<self.endIndex, in: self)
+        return regex.firstMatch(in: self, range: range) != nil
     }
 }

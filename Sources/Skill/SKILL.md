@@ -69,66 +69,35 @@ Sosumi is automatically invoked when queries contain any of:
 /skill sosumi doc "doc://com.apple.documentation/videos/play/wwdc2024/10201"
 ```
 
-## Quick Start
+## 🚀 Quick Start - Universal Search
 
-### 🎯 **Decision Tree for Agents**
-
-**1. Do you have a specific Apple URL?**
-```bash
-/skill sosumi doc "https://developer.apple.com/documentation/..."
-# MOST EFFICIENT - Direct access
-```
-
-**2. Need to search for documentation?**
-```bash
-/skill sosumi docs "your topic" --format compact-scores --limit 10
-# Uses comprehensive search with efficient defaults
-```
-
-**3. Have a specific WWDC session ID?**
-```bash
-/skill sosumi session wwdc2025-317
-# Gets full transcript (offline, fast)
-```
-
-**4. Broad search across docs + WWDC?**
-```bash
-/skill sosumi search "your topic" --limit 15
-# Combined search with efficient limits
-```
-
-### 📋 **Best Practices**
+**For AI Agents (Recommended): Just use `sosumi search`**
 
 ```bash
-# 🎯 MOST EFFICIENT PATTERNS (Recommended for Agents)
+# Works with anything - auto-detects what you want:
+sosumi search "SharePlay"
+sosumi search "SharePlay GroupActivities"
+sosumi search "https://developer.apple.com/documentation/groupactivities/..."
+sosumi search "https://developer.apple.com/videos/play/wwdc2024/10102/"
+sosumi search "wwdc2024-10102"
 
-# When you have a specific Apple URL:
-/skill sosumi doc "https://developer.apple.com/documentation/groupactivities/joining-and-managing-a-shared-activity"
+### How sosumi search Routes Your Input
 
-# When you need to search for documentation:
-/skill sosumi docs "shared experiences" --format compact-scores --limit 10
+| Input Example                                                 | Detected As           | Routes To            | Result                        |
+|---------------------------------------------------------------|-----------------------|----------------------|-------------------------------|
+| SharePlay                                                     | Single word/framework | Documentation search | API docs for SharePlay        |
+| SharePlay GroupActivities                                     | Multi-word query      | Combined search      | Both docs + WWDC sessions     |
+| wwdc2024-10102                                                | Session ID            | Session lookup       | Full WWDC session transcript  |
+| https://developer.apple.com/videos/play/wwdc2024/10102/       | Video URL             | Session fetch        | Extracts ID + fetches session |
+| https://developer.apple.com/documentation/groupactivities/... | Doc URL               | Page fetch           | Fetches specific doc page     |
+| groupactivities/adding-spatial-persona-support-to-an-activity | Doc path              | Page fetch           | Fetches specific doc page     |
 
-# When you have a specific WWDC session ID:
-/skill sosumi session wwdc2025-317
+### Alternative Commands (when you want to be specific)
 
-# Combined search (docs + WWDC):
-/skill sosumi search "SharePlay nearby" --limit 15
-
-# 📚 DOCUMENTATION SEARCH
-/skill sosumi docs "SwiftUI animations" --format compact-scores
-/skill sosumi docs "URLSession metrics" --limit 5
-/skill sosumi docs "Combine scheduler" --format compact
-
-# 🎥 WWDC CONTENT (Offline Transcripts Available)
-/skill sosumi wwdc "GroupActivities"  # Search session metadata
-/skill sosumi session wwdc2023-1004  # Get full transcript (offline)
-
-# 🔍 EFFICIENCY TIPS
-# Use --format compact-scores for token efficiency + relevance
-# Use --limit <number> to control result count
-# Direct URLs are most efficient when available
-# WWDC transcripts are offline and fast
-```
+- sosumi docs <query> - Force documentation search only
+- sosumi wwdc <query> - Force WWDC search only
+- sosumi doc <path> - Fetch specific documentation page
+- sosumi session <id> - Get specific WWDC session
 
 ### ⚠️ **Troubleshooting Missing Content**
 

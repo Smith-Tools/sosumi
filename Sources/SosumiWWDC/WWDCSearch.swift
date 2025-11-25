@@ -108,12 +108,20 @@ public struct WWDCSearchEngine {
         mode: MarkdownFormatter.OutputMode = .user,
         format: MarkdownFormatter.OutputFormat = .markdown,
         bundlePath: String? = nil,
-        limit: Int = 20
+        limit: Int = 20,
+        maxTranscriptParagraphs: Int = 2,
+        minRelevanceScore: Double = 0.0
     ) throws -> String {
         do {
             // Try to use the new database system if available
-            let results = try performDatabaseSearch(query: query, bundlePath: bundlePath, limit: limit)
-            return MarkdownFormatter.formatSearchResults(results, query: query, mode: mode, format: format)
+            var results = try performDatabaseSearch(query: query, bundlePath: bundlePath, limit: limit)
+
+            // Apply relevance score filtering
+            if minRelevanceScore > 0.0 {
+                results = results.filter { $0.relevanceScore >= minRelevanceScore }
+            }
+
+            return MarkdownFormatter.formatSearchResults(results, query: query, mode: mode, format: format, maxTranscriptParagraphs: maxTranscriptParagraphs)
         } catch {
             // Fallback to legacy search if database not available
             print("⚠️  Database search failed, using legacy search: \(error)")
@@ -126,12 +134,13 @@ public struct WWDCSearchEngine {
         sessionId: String,
         mode: MarkdownFormatter.OutputMode = .user,
         format: MarkdownFormatter.OutputFormat = .markdown,
-        bundlePath: String? = nil
+        bundlePath: String? = nil,
+        maxTranscriptParagraphs: Int = 2
     ) throws -> String? {
         do {
             let session = try performDatabaseSessionLookup(sessionId: sessionId, bundlePath: bundlePath)
             guard let session = session else { return nil }
-            return MarkdownFormatter.formatSession(session, mode: mode, format: format)
+            return MarkdownFormatter.formatSession(session, mode: mode, format: format, maxTranscriptParagraphs: maxTranscriptParagraphs)
         } catch {
             print("⚠️  Database lookup failed for session \(sessionId): \(error)")
             return nil

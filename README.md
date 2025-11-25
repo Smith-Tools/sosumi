@@ -70,17 +70,17 @@ sosumi provides two distinct search modes:
 wget https://github.com/Smith-Tools/sosumi/releases/latest/download/sosumi-macos
 chmod +x sosumi-macos
 
-# Live Apple documentation search
-./sosumi-macos docs "SwiftUI layout" --limit 5
+# 🌟 Universal search (auto-routes intelligently)
+./sosumi-macos search "SharePlay GroupActivities"      # Both docs + WWDC
+./sosumi-macos search "SwiftUI"                        # Documentation
+./sosumi-macos search "wwdc2024-10102"                 # WWDC session by ID
+./sosumi-macos search "https://developer.apple.com/videos/play/wwdc2024/10102/"  # Video URL
 
-# Fetch a specific doc page
-./sosumi-macos doc swiftui/view
-
-# WWDC search (user mode)
-./sosumi-macos wwdc "SwiftUI animations"
-
-# WWDC search (agent/full transcript)
-./sosumi-macos wwdc "SharePlay" --verbosity full --format json
+# Or use specific commands
+./sosumi-macos docs "SwiftUI layout" --limit 5         # Documentation search
+./sosumi-macos doc swiftui/view                        # Fetch specific doc page
+./sosumi-macos wwdc "SharePlay" --limit 10             # WWDC search
+./sosumi-macos session wwdc2024-10102 --mode agent     # Full transcript
 ```
 
 **That's it. No configuration needed. Production binaries include the encrypted WWDC bundle and ship with live doc capabilities enabled.**
@@ -121,6 +121,30 @@ swift run sosumi docs "SwiftUI" --limit 5
 **Note**: Development builds use fake data intentionally. This allows developers to work on features without access to production encryption keys. If you want real data, use the production binary instead.
 
 ## 📖 Usage Guide
+
+### 🌟 Universal Search (Recommended)
+
+The `sosumi search` command intelligently routes to the right backend:
+
+```bash
+# Single word → documentation search
+sosumi search "SwiftUI"
+
+# Multiple words → both docs + WWDC sessions
+sosumi search "SharePlay GroupActivities"
+
+# Session ID → WWDC session lookup
+sosumi search "wwdc2024-10102"
+
+# Full URL → auto-detects and routes
+sosumi search "https://developer.apple.com/videos/play/wwdc2024/10102/"
+sosumi search "https://developer.apple.com/documentation/groupactivities/adding-spatial-persona-support-to-an-activity"
+
+# Force a specific search type
+sosumi search "SharePlay" --type docs      # Documentation only
+sosumi search "SharePlay" --type wwdc      # WWDC sessions only
+sosumi search "SharePlay" --mode agent     # Agent mode (full transcripts)
+```
 
 ### Apple Documentation Search (live network)
 
