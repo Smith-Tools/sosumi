@@ -8,7 +8,7 @@ struct SosumiCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "sosumi",
         abstract: "Sosumi - Apple Documentation & WWDC Search Tool",
-        version: "1.2.0",
+        version: "1.3.0",
         subcommands: [
             SearchCommand.self,
             DocsCommand.self,
