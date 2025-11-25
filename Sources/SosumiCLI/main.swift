@@ -208,7 +208,7 @@ struct SosumiCLI: AsyncParsableCommand {
                 }
 
             case .combined(let searchQuery):
-                // Run both docs and wwdc searches
+                // Run both docs and wwdc searches with deduplication
                 print("🔍 Searching across documentation and WWDC sessions...\n")
 
                 // Split limit between docs and WWDC
@@ -217,7 +217,63 @@ struct SosumiCLI: AsyncParsableCommand {
 
                 print("📊 Limits: \(docsLimit) docs, \(wwdcLimit) WWDC sessions\n")
 
-                // Search docs first
+                // Variables to capture outputs and session IDs for deduplication
+                var wwdcOutput = ""
+                var wwdcSessionIds = Set<String>()
+
+                // Search WWDC FIRST to extract session IDs for deduplication
+                print("🎥 WWDC Sessions:")
+                print(String(repeating: "-", count: 50))
+
+                print("🎥 Searching WWDC sessions for: \(searchQuery)")
+                print(String(repeating: "=", count: 50))
+
+                // CRITICAL: Check if bundle exists before attempting search
+                guard BundleManager.bundleExists() else {
+                    BundleManager.presentMissingBundleError(command: "sosumi wwdc")
+                }
+
+                let wwdcOutputMode: MarkdownFormatter.OutputMode = .user  // Use user mode for combined search
+                let wwdcOutputFormat: MarkdownFormatter.OutputFormat = .markdown
+
+                do {
+                    // Use new database search
+                    wwdcOutput = try WWDCSearchEngine.searchWithDatabase(
+                        query: searchQuery,
+                        mode: wwdcOutputMode,
+                        format: wwdcOutputFormat,
+                        bundlePath: nil,
+                        limit: wwdcLimit  // Changed from limit
+                    )
+
+                    // Extract session IDs from WWDC output for deduplication
+                    wwdcSessionIds = extractSessionIds(from: wwdcOutput)
+
+                    print(wwdcOutput)
+                } catch {
+                    // Fallback to legacy search with error handling
+                    print("⚠️  Database search failed, trying legacy search: \(error)")
+
+                    let results = SosumiWWDC.searchWWDC(query: searchQuery)
+
+                    if results.isEmpty {
+                        print("❌ No WWDC sessions found for: \(searchQuery)")
+                        print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
+                        return
+                    }
+
+                    for (index, result) in results.enumerated() {
+                        print("\(index + 1). \(result.title) (\(result.year))")
+                        print("   Score: \(String(format: "%.1f", result.relevanceScore))")
+                        if let segments = result.timeSegments, !segments.isEmpty {
+                            print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
+                        }
+                        print("   \(result.excerpt)")
+                        print()
+                    }
+                }
+
+                print("\n")
                 print("📚 Apple Documentation:")
                 print(String(repeating: "-", count: 50))
 
@@ -254,7 +310,24 @@ struct SosumiCLI: AsyncParsableCommand {
 
                         // Render search results
                         let output = renderer.renderSearchResultsCompactWithScores(renderedResponse)
-                        print(output)
+
+                        // Apply deduplication: filter out docs that mention WWDC session IDs
+                        if !wwdcSessionIds.isEmpty {
+                            let docLines = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                            let uniqueDocLines = docLines.filter { line in
+                                // Keep line if it doesn't mention any WWDC session ID
+                                !wwdcSessionIds.contains { id in line.contains(id) }
+                            }
+
+                            if uniqueDocLines.count < docLines.count {
+                                print("\(uniqueDocLines.joined(separator: "\n"))")
+                                print("\n✅ Removed \(docLines.count - uniqueDocLines.count) duplicate(s) found in WWDC sessions")
+                            } else {
+                                print(output)
+                            }
+                        } else {
+                            print(output)
+                        }
 
                         // Show efficiency information
                         if totalFound > limitedResults.count {
@@ -270,57 +343,23 @@ struct SosumiCLI: AsyncParsableCommand {
                     print("💡 This might be a network issue or the API endpoints may have changed")
                     print("🔗 For Apple Developer documentation, visit: https://developer.apple.com/documentation")
                 }
+            }
+        }
 
-                print("\n")
-                print("🎥 WWDC Sessions:")
-                print(String(repeating: "-", count: 50))
-
-                // Now search WWDC
-                print("🎥 Searching WWDC sessions for: \(searchQuery)")
-                print(String(repeating: "=", count: 50))
-
-                // CRITICAL: Check if bundle exists before attempting search
-                guard BundleManager.bundleExists() else {
-                    BundleManager.presentMissingBundleError(command: "sosumi wwdc")
-                }
-
-                let wwdcOutputMode: MarkdownFormatter.OutputMode = .user  // Use user mode for combined search
-                let wwdcOutputFormat: MarkdownFormatter.OutputFormat = .markdown
-
-                do {
-                    // Use new database search
-                    let result = try WWDCSearchEngine.searchWithDatabase(
-                        query: searchQuery,
-                        mode: wwdcOutputMode,
-                        format: wwdcOutputFormat,
-                        bundlePath: nil,
-                        limit: wwdcLimit  // Changed from limit
-                    )
-
-                    print(result)
-                } catch {
-                    // Fallback to legacy search with error handling
-                    print("⚠️  Database search failed, trying legacy search: \(error)")
-
-                    let results = SosumiWWDC.searchWWDC(query: searchQuery)
-
-                    if results.isEmpty {
-                        print("❌ No WWDC sessions found for: \(searchQuery)")
-                        print("💡 Try searching for related terms like 'SwiftUI', 'Combine', 'async'")
-                        return
-                    }
-
-                    for (index, result) in results.enumerated() {
-                        print("\(index + 1). \(result.title) (\(result.year))")
-                        print("   Score: \(String(format: "%.1f", result.relevanceScore))")
-                        if let segments = result.timeSegments, !segments.isEmpty {
-                            print("   🕐 Key segments: \(segments.map { $0.approximateTime }.joined(separator: ", "))")
-                        }
-                        print("   \(result.excerpt)")
-                        print()
+        /// Extract session IDs from text (e.g., "wwdc2024-10102", "tech-talks-110338")
+        private func extractSessionIds(from text: String) -> Set<String> {
+            var ids = Set<String>()
+            // Regex to find wwdcYYYY-XXXXX or tech-talks-XXXXX patterns
+            if let regex = try? NSRegularExpression(pattern: "wwdc\\d{4}-\\d+|tech-talks-\\d+", options: []) {
+                let range = NSRange(text.startIndex..<text.endIndex, in: text)
+                let matches = regex.matches(in: text, range: range)
+                for match in matches {
+                    if let range = Range(match.range, in: text) {
+                        ids.insert(String(text[range]))
                     }
                 }
             }
+            return ids
         }
 
         /// Intelligent routing based on query pattern
