@@ -15,6 +15,7 @@ public class MarkdownFormatter {
     public enum OutputFormat {
         case markdown
         case json
+        case jsonCompact  // Minimal JSON for agent consumption
     }
 
     // MARK: - Formatting Methods
@@ -32,6 +33,8 @@ public class MarkdownFormatter {
             return formatSearchResultsAsMarkdown(results, query: query, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         case .json:
             return formatSearchResultsAsJSON(results, query: query, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
+        case .jsonCompact:
+            return formatSearchResultsAsJsonCompact(results, query: query)
         }
     }
 
@@ -47,6 +50,8 @@ public class MarkdownFormatter {
             return formatSessionAsMarkdown(session, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
         case .json:
             return formatSessionAsJSON(session, mode: mode, maxTranscriptParagraphs: maxTranscriptParagraphs)
+        case .jsonCompact:
+            return formatSessionAsJsonCompact(session)
         }
     }
 
@@ -61,6 +66,8 @@ public class MarkdownFormatter {
             return formatSessionsAsMarkdown(sessions, mode: mode)
         case .json:
             return formatSessionsAsJSON(sessions, mode: mode)
+        case .jsonCompact:
+            return formatSessionsAsJsonCompact(sessions)
         }
     }
 
@@ -653,6 +660,70 @@ public class MarkdownFormatter {
         }
 
         jsonData["sessions"] = sessionsArray
+
+        return formatJSON(jsonData)
+    }
+
+    // MARK: - JSON Compact Formatting (Minimal Output)
+
+    private static func formatSearchResultsAsJsonCompact(_ results: [WWDCDatabase.SearchResult], query: String) -> String {
+        var compactResults: [[String: Any]] = []
+
+        for result in results {
+            let compactResult: [String: Any] = [
+                "id": result.session.id,
+                "title": result.session.title,
+                "year": result.session.year,
+                "url": result.session.webUrl as Any,
+                "relevance": round(result.relevanceScore * 100) / 100,
+                "summary": (result.session.description ?? "").prefix(200),
+                "topics": extractKeyTopics(from: result.session).prefix(3)
+            ]
+            compactResults.append(compactResult)
+        }
+
+        let jsonData: [String: Any] = [
+            "type": "wwdc_search_results",
+            "query": query,
+            "count": compactResults.count,
+            "results": compactResults
+        ]
+
+        return formatJSON(jsonData)
+    }
+
+    private static func formatSessionAsJsonCompact(_ session: WWDCDatabase.Session) -> String {
+        let compactSession: [String: Any] = [
+            "id": session.id,
+            "title": session.title,
+            "year": session.year,
+            "url": session.webUrl as Any,
+            "summary": (session.description ?? "").prefix(300),
+            "topics": extractKeyTopics(from: session).prefix(3),
+            "duration": session.duration as Any,
+            "wordCount": session.wordCount as Any
+        ]
+
+        return formatJSON(compactSession)
+    }
+
+    private static func formatSessionsAsJsonCompact(_ sessions: [WWDCDatabase.Session]) -> String {
+        let compactSessions = sessions.map { session in
+            [
+                "id": session.id as Any,
+                "title": session.title as Any,
+                "year": session.year as Any,
+                "url": session.webUrl as Any,
+                "summary": (session.description ?? "").prefix(200) as Any,
+                "topics": extractKeyTopics(from: session).prefix(3) as Any
+            ]
+        }
+
+        let jsonData: [String: Any] = [
+            "type": "wwdc_sessions",
+            "count": compactSessions.count,
+            "sessions": compactSessions
+        ]
 
         return formatJSON(jsonData)
     }

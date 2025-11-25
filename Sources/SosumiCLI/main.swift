@@ -37,7 +37,7 @@ struct SosumiCLI: AsyncParsableCommand {
         @Option(name: .long, help: "Limit number of results")
         var limit: Int = 15
 
-        @Option(name: .long, help: "Output format: markdown or json")
+        @Option(name: .long, help: "Output format: markdown, json, or json-compact")
         var format: String = "markdown"
 
         @Option(name: .long, help: "Output mode: user (snippet), agent (full), compact-agent (efficient)")
@@ -113,8 +113,10 @@ struct SosumiCLI: AsyncParsableCommand {
                     outputFormat = .markdown
                 case "json":
                     outputFormat = .json
+                case "json-compact", "jsoncompact":
+                    outputFormat = .jsonCompact
                 default:
-                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                    print("❌ Invalid format: \(format). Use 'markdown', 'json', or 'json-compact'.")
                     throw ExitCode.failure
                 }
 
@@ -166,8 +168,10 @@ struct SosumiCLI: AsyncParsableCommand {
                     outputFormat = .markdown
                 case "json":
                     outputFormat = .json
+                case "json-compact", "jsoncompact":
+                    outputFormat = .jsonCompact
                 default:
-                    print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
+                    print("❌ Invalid format: \(format). Use 'markdown', 'json', or 'json-compact'.")
                     throw ExitCode.failure
                 }
 
