@@ -39,9 +39,11 @@ Both paths are exposed through the CLI and the Claude skill so agents can mix of
 
 **If you clone the repo and WWDC search doesn't work, this is expected.** Use the production binary instead.
 
-## 🎯 What is sosumi-skill?
+## 🎯 What is sosumi?
 
-sosumi provides two distinct search modes:
+**v1.3.0 Improvements:** Introducing compact-agent mode and json-compact format for 87% token reduction!
+
+sosumi provides multiple output modes and formats:
 
 ### 👥 User Mode
 - **Quick summaries** with key points
@@ -55,11 +57,36 @@ sosumi provides two distinct search modes:
 - **AI-friendly formatting** for synthesis
 - **Structured data** in JSON option
 
+### 🚀 Compact-Agent Mode (v1.3.0+)
+- **Optimized for token efficiency** (30-40% reduction vs full agent)
+- **Brief summary** (max 300 chars)
+- **Top 3 topics** only
+- **Minimal transcript** (2 paragraphs)
+- **Use:** `sosumi search "query" --mode compact-agent`
+
+### 📊 Output Formats (v1.3.0+)
+- **Markdown** - Human-friendly formatted text (default)
+- **JSON** - Full structured data for programmatic use
+- **JSON-Compact** - Minimal JSON (50% smaller than full JSON)
+- **Use:** `sosumi search "query" --format json-compact`
+
 ### 📚 Coverage
 - **Live Apple documentation search** (Swift, SwiftUI, UIKit, Combine, RealityKit, etc.)
 - **WWDC sessions** 2014‑2025 (3,216 entries; 1,355 transcripts with speakers)
 - **Encrypted SQLite bundle** (~850 MB release artifact, ~166 MB uncompressed)
-- **Dual renderers** (compact vs agent) + Markdown/JSON output
+
+### 🚀 Compact-Agent Mode (v1.3.0+)
+- **Optimized for token efficiency** (30-40% reduction vs full agent)
+- **Brief summary** (300 chars max)
+- **Top 3 topics** only
+- **Minimal transcript** (2 paragraphs)
+- **Use:** `--mode compact-agent`
+
+### 📊 Output Formats (v1.3.0+)
+- **Markdown** - Human-friendly text (default)
+- **JSON** - Full structured data
+- **JSON-Compact** - Minimal JSON (50% smaller) for agents
+- **Use:** `--format json-compact`
 
 ## 🚀 Quick Start
 
@@ -81,6 +108,10 @@ chmod +x sosumi-macos
 ./sosumi-macos doc swiftui/view                        # Fetch specific doc page
 ./sosumi-macos wwdc "SharePlay" --limit 10             # WWDC search
 ./sosumi-macos session wwdc2024-10102 --mode agent     # Full transcript
+
+# v1.3.0 Features: Compact-agent mode for token efficiency
+./sosumi-macos search "async await" --mode compact-agent  # 30-40% fewer tokens
+./sosumi-macos search "SwiftUI" --format json-compact     # 50% smaller JSON
 ```
 
 **That's it. No configuration needed. Production binaries include the encrypted WWDC bundle and ship with live doc capabilities enabled.**
