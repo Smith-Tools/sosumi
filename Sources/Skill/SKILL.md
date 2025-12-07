@@ -1,7 +1,7 @@
 ---
 name: sosumi
-description: Search Apple developer documentation and WWDC sessions. Automatically triggers on: SwiftUI, Combine, Core Data, SharePlay, @State, @Published, async/await, UIKit, AppKit, visionOS, iOS development, Apple APIs, WWDC questions.
-allowed-tools: [Bash, Read, Write, Glob]
+description: Search Apple developer documentation and WWDC sessions. Automatically triggers on Apple frameworks (SwiftUI, Combine, Core Data, UIKit, AppKit), Apple APIs, @State/@Published, async/await, visionOS, iOS SDK, and WWDC questions. Does NOT cover third-party packages (use scully) or personal discoveries (use maxwell).
+allowed-tools: Bash, Read, Write, Glob
 ---
 
 # Sosumi - Apple Documentation & WWDC Skill
