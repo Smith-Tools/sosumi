@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "sosumi",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .executable(
@@ -26,6 +26,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-testing.git", .upToNextMinor(from: "0.9.0")),
+        .package(path: "../smith-rag"),
     ],
     targets: [
         .executableTarget(
@@ -45,6 +46,7 @@ let package = Package(
             name: "SosumiWWDC",
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "SmithRAG", package: "smith-rag"),
             ]
         ),
         .testTarget(

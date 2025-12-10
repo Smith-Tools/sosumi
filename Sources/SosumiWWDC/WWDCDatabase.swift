@@ -170,24 +170,29 @@ public class WWDCDatabase {
     }
 
     /// Performs a full-text search for sessions matching the query
+    ///
+    /// Uses FTS5 MATCH with safe string interpolation. Input is validated and escaped
+    /// before being used in the query.
+    ///
+    /// **Note on implementation**: This uses string interpolation instead of parameter binding
+    /// due to a Swift/SQLite limitation with FTS5 MATCH. See FTS5QueryHelper documentation
+    /// for details on the workaround and security model.
+    ///
+    /// - Parameters:
+    ///   - query: The search term (validated and escaped internally)
+    ///   - limit: Maximum results to return (1-1000)
+    ///   - offset: Result offset for pagination (0-100000)
+    /// - Returns: Array of SearchResult with relevance scores
+    /// - Throws: WWDCDatabaseError if validation or query fails
     public func search(query: String, limit: Int = 20, offset: Int = 0) throws -> [SearchResult] {
         try ensureInitialized()
 
-        // Use string interpolation instead of parameter binding for FTS5 MATCH queries
-        // This works around the SQLite FTS5 parameter binding issue in Swift
-        let searchQuery = """
-        SELECT
-            s.id, s.title, s.year, s.session_number, s.type, s.duration,
-            s.description, s.web_url,
-            t.content, t.word_count,
-            bm25(transcripts_fts)
-        FROM transcripts_fts
-        JOIN sessions s ON transcripts_fts.session_id = s.id
-        LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE transcripts_fts MATCH '\(query)'
-        ORDER BY bm25(transcripts_fts)
-        LIMIT \(limit) OFFSET \(offset)
-        """
+        // Build query using FTS5QueryHelper for safe escaping and validation
+        let searchQuery = try FTS5QueryHelper.buildFTS5SearchQuery(
+            searchTerm: query,
+            limit: limit,
+            offset: offset
+        )
 
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, searchQuery, -1, &stmt, nil) != SQLITE_OK {
@@ -208,20 +213,15 @@ public class WWDCDatabase {
     }
 
     /// Gets a specific session by ID
+    ///
+    /// - Parameter id: The session ID (validated internally)
+    /// - Returns: Session if found, nil otherwise
+    /// - Throws: WWDCDatabaseError if validation or query fails
     public func getSession(byId id: String) throws -> Session? {
         try ensureInitialized()
 
-        // Use string interpolation instead of parameter binding to work around SQLite binding issues
-        let sanitizedId = id.replacingOccurrences(of: "'", with: "''")
-        let query = """
-        SELECT
-            s.id, s.title, s.year, s.session_number, s.type, s.duration,
-            s.description, s.web_url,
-            t.content, t.word_count
-        FROM sessions s
-        LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE s.id = '\(sanitizedId)'
-        """
+        // Build query using FTS5QueryHelper for safe escaping and validation
+        let query = try FTS5QueryHelper.buildSessionLookupQuery(sessionId: id)
 
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &stmt, nil) != SQLITE_OK {
@@ -241,21 +241,17 @@ public class WWDCDatabase {
     }
 
     /// Gets sessions by year
+    ///
+    /// - Parameters:
+    ///   - year: The WWDC year (2003-2030)
+    ///   - limit: Maximum results to return
+    /// - Returns: Array of sessions for the specified year
+    /// - Throws: WWDCDatabaseError if validation or query fails
     public func getSessionsByYear(_ year: Int, limit: Int = 50) throws -> [Session] {
         try ensureInitialized()
 
-        // Use string interpolation instead of parameter binding to work around SQLite binding issues
-        let query = """
-        SELECT
-            s.id, s.title, s.year, s.session_number, s.type, s.duration,
-            s.description, s.web_url,
-            t.content, t.word_count
-        FROM sessions s
-        LEFT JOIN transcripts t ON s.id = t.session_id
-        WHERE s.year = \(year)
-        ORDER BY s.session_number
-        LIMIT \(limit)
-        """
+        // Build query using FTS5QueryHelper for safe validation
+        let query = try FTS5QueryHelper.buildYearQuery(year: year, limit: limit)
 
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &stmt, nil) != SQLITE_OK {
