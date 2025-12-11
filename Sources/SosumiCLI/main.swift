@@ -20,7 +20,8 @@ struct SosumiCLI: AsyncParsableCommand {
             TestCommand.self,
             AppleDocCommand.self,
             RAGSearchCommand.self,
-            IngestRAGCommand.self
+            IngestRAGCommand.self,
+            EmbedMissing.self
         ]
     )
 
@@ -1331,6 +1332,55 @@ struct IngestRAGCommand: AsyncParsableCommand {
         }
         
         print("\n🏁 Done! Ingested: \(success), Failed: \(failed)")
+    }
+}
+
+// MARK: - Embed Missing Command
+struct EmbedMissing: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "embed-missing",
+        abstract: "Process chunks that are missing vector embeddings"
+    )
+    
+    @Option(name: .shortAndLong, help: "Number of chunks to process per batch")
+    var batchSize: Int = 100
+    
+    @Option(name: .shortAndLong, help: "Maximum total chunks to process")
+    var limit: Int = 1000
+    
+    func run() async throws {
+        print("🔄 Embedding missing chunks...")
+        print("   Database: \(SosumiRAGAdapter.defaultRAGDatabasePath())")
+        print("   Batch size: \(batchSize)")
+        print("   Max chunks: \(limit)")
+        print("")
+        
+        let adapter = try SosumiRAGAdapter()
+        
+        // We'll process in loops until we hit the limit or run out of chunks
+        var totalProcessed = 0
+        var batchCount = 1
+        
+        while totalProcessed < limit {
+            let remaining = limit - totalProcessed
+            let currentBatchSize = min(batchSize, remaining)
+            
+            print("📦 Batch \(batchCount)...")
+            let processed = try await adapter.embedMissing(limit: currentBatchSize)
+            
+            if processed == 0 {
+                print("✅ All chunks have embeddings!")
+                break
+            }
+            
+            totalProcessed += processed
+            batchCount += 1
+            
+            // Brief pause between batches
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+        
+        print("\n🏁 Done! Total embedded: \(totalProcessed)")
     }
 }
 

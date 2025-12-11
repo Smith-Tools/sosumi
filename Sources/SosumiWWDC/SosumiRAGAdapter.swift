@@ -63,6 +63,11 @@ public actor SosumiRAGAdapter {
         )
     }
     
+    /// Process missing vectors
+    public func embedMissing(limit: Int = 100) async throws -> Int {
+        try await ragEngine.embedMissing(batchSize: limit)
+    }
+    
     /// Check RAG system status
     public func status() async -> (embedding: Bool, reranker: Bool) {
         await ragEngine.checkOllama()
