@@ -86,7 +86,7 @@ public actor SosumiRAGAdapter {
     }
 }
 
-public struct WWDCRAGResult {
+public struct WWDCRAGResult: Sendable {
     public let chunkId: String
     public let sessionId: String?
     public let year: Int?

@@ -307,6 +307,54 @@ public class WWDCDatabase {
 
         return stats
     }
+    
+    /// Transcript info for RAG ingestion
+    public struct TranscriptInfo {
+        public let sessionId: String
+        public let title: String
+        public let year: Int
+        public let content: String
+    }
+    
+    /// Gets all transcripts for RAG ingestion
+    public func getAllTranscripts(limit: Int = 2000) throws -> [TranscriptInfo] {
+        try ensureInitialized()
+        
+        let query = """
+            SELECT s.id, s.title, s.year, t.content
+            FROM sessions s
+            JOIN transcripts t ON s.id = t.session_id
+            WHERE t.content IS NOT NULL AND t.content != ''
+            ORDER BY s.year DESC, s.title
+            LIMIT \(limit)
+        """
+        
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db))
+            throw WWDCDatabaseError.queryFailed(errmsg)
+        }
+        
+        var transcripts: [TranscriptInfo] = []
+        
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let sessionId = extractString(from: stmt, at: 0) ?? ""
+            let title = extractString(from: stmt, at: 1) ?? ""
+            let year = Int(sqlite3_column_int(stmt, 2))
+            let content = extractString(from: stmt, at: 3) ?? ""
+            
+            transcripts.append(TranscriptInfo(
+                sessionId: sessionId,
+                title: title,
+                year: year,
+                content: content
+            ))
+        }
+        
+        sqlite3_finalize(stmt)
+        
+        return transcripts
+    }
 
     // MARK: - Private Methods
 

@@ -18,7 +18,9 @@ struct SosumiCLI: AsyncParsableCommand {
             StatsCommand.self,
             UpdateCommand.self,
             TestCommand.self,
-            AppleDocCommand.self
+            AppleDocCommand.self,
+            RAGSearchCommand.self,
+            IngestRAGCommand.self
         ]
     )
 
@@ -1205,4 +1207,135 @@ extension String {
         let range = NSRange(self.startIndex..<self.endIndex, in: self)
         return regex.firstMatch(in: self, range: range) != nil
     }
+}
+
+// MARK: - RAG Search Command (Semantic Search)
+struct RAGSearchCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "rag-search",
+        abstract: "Semantic search using RAG (embeddings + reranker)"
+    )
+    
+    @Argument(help: "Search query")
+    var query: String
+    
+    @Option(name: .shortAndLong, help: "Maximum number of results")
+    var limit: Int = 5
+    
+    @Flag(name: .long, help: "Skip reranking (faster)")
+    var noRerank: Bool = false
+    
+    @Flag(name: .long, help: "Output as JSON")
+    var json: Bool = false
+    
+    func run() async throws {
+        do {
+            let adapter = try SosumiRAGAdapter()
+            
+            let results = try await adapter.search(
+                query: query,
+                limit: limit,
+                useReranker: !noRerank
+            )
+            
+            if json {
+                let output = results.map { r in
+                    ["id": r.chunkId, "session": r.sessionId ?? "", "year": r.year ?? 0, "score": r.score, "snippet": r.snippet] as [String : Any]
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: output, options: .prettyPrinted),
+                   let str = String(data: data, encoding: .utf8) {
+                    print(str)
+                }
+            } else {
+                if results.isEmpty {
+                    print("No results found for: \(query)")
+                    print("💡 Run 'sosumi ingest-rag' first to build the RAG database")
+                } else {
+                    print("🔍 Found \(results.count) matches:\n")
+                    for (i, result) in results.enumerated() {
+                        let session = result.sessionId.map { "Session \($0)" } ?? result.chunkId
+                        let year = result.year.map { " (\($0))" } ?? ""
+                        let score = String(format: "%.2f", result.score)
+                        print("[\(i + 1)] \(session)\(year) (score: \(score))")
+                        print("    \(result.snippet.prefix(200))")
+                        print("")
+                    }
+                }
+            }
+        } catch {
+            print("❌ RAG search failed: \(error)")
+            print("💡 Make sure Ollama is running with nomic-embed-text model")
+        }
+    }
+}
+
+// MARK: - Ingest RAG Command
+struct IngestRAGCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "ingest-rag",
+        abstract: "Ingest WWDC transcripts into RAG database"
+    )
+    
+    @Option(name: .long, help: "Maximum sessions to ingest")
+    var limit: Int = 2000
+    
+    @Option(name: .long, help: "WWDC database path")
+    var wwdcDatabase: String = defaultWWDCDatabasePath()
+    
+    @Option(name: .long, help: "Delay between embeddings (ms)")
+    var delay: Int = 100
+    
+    func run() async throws {
+        print("📦 Ingesting WWDC transcripts to RAG format...")
+        print("   WWDC DB: \(wwdcDatabase)")
+        print("   RAG DB: \(SosumiRAGAdapter.defaultRAGDatabasePath())")
+        print("   Delay: \(delay)ms between embeddings")
+        
+        // Create RAG directory if needed
+        let ragDir = URL(fileURLWithPath: SosumiRAGAdapter.defaultRAGDatabasePath()).deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: ragDir, withIntermediateDirectories: true)
+        
+        // Open WWDC database
+        guard FileManager.default.fileExists(atPath: wwdcDatabase) else {
+            print("❌ WWDC database not found at: \(wwdcDatabase)")
+            return
+        }
+        
+        // Use SQLite directly to read transcripts
+        let db = WWDCDatabase(databasePath: wwdcDatabase)
+        defer { db.close() }
+        
+        let transcripts = try db.getAllTranscripts(limit: limit)
+        print("   Found \(transcripts.count) transcripts to process.\n")
+        
+        let adapter = try SosumiRAGAdapter()
+        var success = 0
+        var failed = 0
+        
+        for (index, transcript) in transcripts.enumerated() {
+            do {
+                try await adapter.ingestSession(
+                    sessionId: transcript.sessionId,
+                    year: transcript.year,
+                    title: transcript.title,
+                    transcript: transcript.content
+                )
+                
+                print("✅ [\(index + 1)/\(transcripts.count)] \(transcript.title)")
+                success += 1
+                
+            } catch {
+                print("❌ [\(index + 1)/\(transcripts.count)] \(transcript.title): \(error)")
+                failed += 1
+            }
+        }
+        
+        print("\n🏁 Done! Ingested: \(success), Failed: \(failed)")
+    }
+}
+
+// MARK: - Helper
+func defaultWWDCDatabasePath() -> String {
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    return home.appendingPathComponent(".claude/resources/databases/wwdc.db").path
 }
