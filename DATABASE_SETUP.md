@@ -2,40 +2,54 @@
 
 sosumi requires a WWDC transcript database to function. This document explains how to set it up.
 
+## Database Locations
+
+| Database | Path | Purpose |
+|----------|------|---------|
+| **WWDC Source** | `~/.claude/resources/databases/wwdc.db` | Primary WWDC session/transcript DB |
+| **RAG Embeddings** | `~/.smith/rag/sosumi.db` | Vector embeddings for semantic search |
+| **Source Data** | `sosumi-data-private/Outputs/wwdc.db` | Development source (not distributed) |
+
 ## Quick Start
 
-The database is stored in your home directory: `~/.sosumi/wwdc.db`
+### Option 1: Download Production Binary (Recommended)
 
-### Option 1: Download Pre-built Database (Recommended)
-
-Coming in v1.3.0 release - encrypted bundle with embedded decryption key.
+The production binary includes encrypted WWDC data. No database setup needed.
 
 ```bash
-# Download will be provided in release notes
-# Extract to ~/.sosumi/
-mkdir -p ~/.sosumi
-# Extract here
+# Download from releases
+wget https://github.com/Smith-Tools/sosumi/releases/latest/download/sosumi
+chmod +x sosumi
+./sosumi search "SwiftUI"
 ```
 
-### Option 2: Build Database Locally
+### Option 2: Claude Skill Installation
 
-If you have the `sosumi-data-obfuscation` tools available:
+For Claude Code integration:
 
 ```bash
-cd /path/to/sosumi-data-obfuscation
+mkdir -p ~/.claude/resources/databases/
+# Copy database from sosumi-data-private or decrypt from bundle
+cp /path/to/wwdc.db ~/.claude/resources/databases/
+```
+
+### Option 3: Build Database Locally
+
+If you have the `sosumi-data-private` tools:
+
+```bash
+cd sosumi-data-private
 make all  # Fetches, transcripts, builds database (2-3 hours)
-cp Outputs/wwdc.db ~/.sosumi/
+# Output: Outputs/wwdc.db (207MB)
 ```
 
 ## Database Details
 
-**Location:** `~/.sosumi/wwdc.db`
-
 **Contents:**
-- 3,215 WWDC sessions (2007-2025)
-- 1,355 transcripts with full-text search index
+- 3,228 WWDC sessions (2014-2025)
+- 1,373 transcripts with full-text search index (FTS5)
 - 4.7M words of content
-- 30MB SQLite database
+- ~207MB SQLite database
 
 **Schema:**
 ```sql
@@ -44,90 +58,72 @@ transcripts(session_id, language, content, word_count, url, download_timestamp)
 transcripts_fts(session_id, title, content, session_type, year, session_number, duration)
 ```
 
-## How sosumi Uses It
+## RAG (Semantic Search) Setup
 
-sosumi looks for the database in this order:
-
-1. **Plain database** - `~/.sosumi/wwdc.db` (for development)
-2. **Encrypted bundle** - `~/.sosumi/wwdc_bundle.encrypted` (from releases)
-3. Fails gracefully with instructions if neither found
-
-## Building from Source
-
-### Prerequisites
-
-- Swift 6.0+
-- curl, jq, sqlite3
-- ~100GB disk space during build (~30GB final)
-- 2-3 hours for full pipeline
-
-### Build Steps
+For semantic/embedding-based search via `sosumi rag-search`:
 
 ```bash
-cd sosumi-data-obfuscation
+# 1. Ensure WWDC source DB exists
+ls ~/.claude/resources/databases/wwdc.db
 
-# Stage 1: Fetch metadata from Apple CDN (3 min)
-make fetch
+# 2. Ingest transcripts into RAG
+sosumi ingest-rag --limit 2000
 
-# Stage 2: Download transcripts (1-2 hours)
-make download
+# 3. Generate embeddings (requires Ollama running)
+sosumi embed-missing --limit 3000 --batch-size 100
 
-# Stage 3: Build SQLite database (15 min)
-make build
-
-# Output: Outputs/wwdc.db
-cp Outputs/wwdc.db ~/.sosumi/
+# 4. Test semantic search
+sosumi rag-search "building immersive visionOS experiences"
 ```
 
-### Troubleshooting
+**RAG Database:** `~/.smith/rag/sosumi.db`
+- 14,100 chunks from 1,355 sessions
+- Vector embeddings via nomic-embed-text
+- ~140MB with full embeddings
 
-**No sessions found:**
-- Check internet connection
-- Verify Apple CDN endpoints are accessible
-- See `WWDC_DATA_PIPELINE.md` in sosumi-data-obfuscation
+## How sosumi Finds Databases
 
-**Build fails:**
-- Check `Outputs/` directory for partial data
-- Run individual stages separately
-- See BUILD_STATUS document for known issues
+sosumi looks for databases in this order:
+
+1. **Plain database** - `~/.claude/resources/databases/wwdc.db` (v1.3.0+)
+2. **Encrypted bundle** - `Resources/DATA/wwdc_bundle.encrypted` (in binary)
+3. Fails gracefully with instructions if neither found
 
 ## For Developers
 
-### Testing Plain Database Locally
+### Testing Database Locally
 
 ```bash
-# Database must be at ~/.sosumi/wwdc.db
-ls -lh ~/.sosumi/wwdc.db
+# Ensure database exists
+ls -lh ~/.claude/resources/databases/wwdc.db
 
-# Test search
-sosumi search "SwiftUI"
+# Test FTS search
+sosumi wwdc "SwiftUI"
 
-# Test by year
-sosumi sessions 2024
+# Test year listing
+sosumi year 2024
+
+# Test RAG search
+sosumi rag-search "async await concurrency"
 ```
 
 ### Verifying Database Integrity
 
 ```bash
-sqlite3 ~/.sosumi/wwdc.db "SELECT COUNT(*) FROM sessions; SELECT COUNT(*) FROM transcripts WHERE content IS NOT NULL;"
+DB=~/.claude/resources/databases/wwdc.db
+sqlite3 "$DB" "SELECT COUNT(*) FROM sessions;"
+# Expected: 3228
 
-# Expected output:
-# 3215
-# 1355
+sqlite3 "$DB" "SELECT COUNT(*) FROM transcripts;"
+# Expected: 1373
 ```
 
 ### Full-Text Search Test
 
 ```bash
-sqlite3 ~/.sosumi/wwdc.db "SELECT title, year FROM transcripts_fts WHERE transcripts_fts MATCH 'SwiftUI' LIMIT 5;"
+sqlite3 ~/.claude/resources/databases/wwdc.db \
+  "SELECT title, year FROM transcripts_fts WHERE transcripts_fts MATCH 'SwiftUI' LIMIT 5;"
 ```
-
-## Database Lifecycle
-
-| Version | Format | Distribution | Key Management |
-|---------|--------|--------------|-----------------|
-| v1.2.0 | Encrypted Bundle | GitHub Release | GitHub Secrets |
-| v1.3.0+ | Plain (dev) + Encrypted (release) | Hybrid | Embedded in binary |
 
 ## Privacy & Legal
 
@@ -139,10 +135,9 @@ sqlite3 ~/.sosumi/wwdc.db "SELECT title, year FROM transcripts_fts WHERE transcr
 ## References
 
 - Apple WWDC: https://developer.apple.com/videos/
-- sosumi-data-obfuscation: Building pipeline documentation
-- WWDC_DATA_PIPELINE.md: Technical details of data fetching
+- sosumi-data-private: Building pipeline documentation
 
 ---
 
-**Last Updated:** November 19, 2025
-**sosumi Version:** 1.3.0+
+**Last Updated:** December 12, 2025
+**sosumi Version:** 2.0.0+

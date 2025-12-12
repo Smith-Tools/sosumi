@@ -1,4 +1,5 @@
 import Foundation
+import SmithDocExtractor
 
 /// Swift port of Apple documentation JSON to Markdown renderer
 /// Based on sosumi.ai TypeScript rendering implementation

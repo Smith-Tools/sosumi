@@ -27,6 +27,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-testing.git", .upToNextMinor(from: "0.9.0")),
         .package(path: "../smith-rag"),
+        .package(path: "../smith-doc-extractor"),
     ],
     targets: [
         .executableTarget(
@@ -38,9 +39,14 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
+        // SosumiDocs: Documentation Fetching Logic
         .target(
             name: "SosumiDocs",
-            dependencies: []
+            dependencies: [
+                .product(name: "SmithRAG", package: "smith-rag"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "SmithDocExtractor", package: "smith-doc-extractor"),
+            ]
         ),
         .target(
             name: "SosumiWWDC",

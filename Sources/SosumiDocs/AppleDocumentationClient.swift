@@ -1,16 +1,26 @@
 import Foundation
 
+import SmithDocExtractor
+
+// MARK: - Compatibility Aliases
+// These allow existing code to continue working while we transition to generic types
+public typealias AppleDocumentation = DocCRenderNode
+public typealias DocumentationSearchResult = DocCSearchResult
+// Helper aliases (though simple import should suffice if names match)
+
 /// URLSession-based client for accessing Apple Developer JSON documentation APIs
 /// Based on sosumi.ai implementation for accessing undocumented Apple endpoints
 public class AppleDocumentationClient {
 
     // MARK: - Properties
 
-    private let session: URLSession
+    private let fetcher: DocCJSONFetcher
+    private let session: URLSession // Restored for non-standard endpoints
     private let baseURL = "https://developer.apple.com/tutorials/data"
+    // Keep internal legacy URL handling for now until fully refactored
     private let documentationBaseURL = "https://developer.apple.com"
     private let userAgentPool: [String]
-
+    
     public enum DocumentationSource {
         case documentation(String)
         case humanInterfaceGuidelines(String)
@@ -59,11 +69,18 @@ public class AppleDocumentationClient {
     // MARK: - Initialization
 
     public init() {
+        self.fetcher = DocCJSONFetcher(baseURL: "https://developer.apple.com")
+        
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
         self.session = URLSession(configuration: configuration)
-        self.userAgentPool = Self.safariUserAgents
+        // Hardcoded pool for now or use the one from Fetcher if accessible (simpler to duplicate for now)
+        self.userAgentPool = [
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        ]
     }
 
     // MARK: - Public Methods
@@ -104,9 +121,9 @@ public class AppleDocumentationClient {
 
     /// Fetches documentation for a specific path
     public func fetchDocumentation(path: String) async throws -> AppleDocumentation {
-        let normalizedPath = normalizeDocumentationPath(path)
-        let url = "\(baseURL)/\(normalizedPath).json"
-        return try await performRequest(url: url)
+        // Delegate to generic fetcher which handles normalization and fetching
+        // Note: The generic fetcher returns DocCRenderNode which is aliased to AppleDocumentation
+        return try await fetcher.fetchDocumentation(path: path)
     }
 
     /// Fetches HIG table of contents
