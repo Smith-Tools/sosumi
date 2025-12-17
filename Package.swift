@@ -57,6 +57,13 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "SosumiDocsTests",
+            dependencies: [
+                "SosumiDocs",
+                .product(name: "Testing", package: "swift-testing"),
+            ]
+        ),
+        .testTarget(
             name: "SosumiWWDCTests",
             dependencies: [
                 "SosumiWWDC",

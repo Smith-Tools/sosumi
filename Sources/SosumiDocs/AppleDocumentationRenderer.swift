@@ -284,9 +284,73 @@ This page has minimal content in the API response. For complete details:
             }
 
         case "heading":
-            if let heading = fragment.heading {
+            // Apple DocC uses "text" for heading content and "level" for heading depth
+            if let heading = fragment.text {
+                let headingLevel = fragment.level ?? (level + 2)
+                let prefix = String(repeating: "#", count: min(headingLevel, 6))
+                output += "\n\(prefix) \(heading)\n\n"
+            } else if let heading = fragment.heading {
+                // Fallback for older format
                 let prefix = String(repeating: "#", count: min(level + 1, 6))
                 output += "\(prefix) \(heading)\n\n"
+            }
+
+        case "paragraph":
+            // Apple DocC paragraphs use inlineContent array
+            if let inlineContent = fragment.inlineContent {
+                output += renderTextFragments(inlineContent, level: level)
+                output += "\n\n"
+            } else if let content = fragment.content {
+                output += renderTextFragments(content, level: level)
+                output += "\n\n"
+            }
+
+        case "table":
+            output += renderTable(fragment)
+
+        case "unorderedList":
+            if let items = fragment.items {
+                for item in items {
+                    if let itemContent = item.content {
+                        let rendered = renderTextFragments(itemContent, level: level)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        output += "- \(rendered)\n"
+                    }
+                }
+                output += "\n"
+            }
+
+        case "orderedList":
+            if let items = fragment.items {
+                for (index, item) in items.enumerated() {
+                    if let itemContent = item.content {
+                        let rendered = renderTextFragments(itemContent, level: level)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        output += "\(index + 1). \(rendered)\n"
+                    }
+                }
+                output += "\n"
+            }
+
+        case "termList":
+            if let items = fragment.items {
+                for item in items {
+                    var termText = ""
+                    if let termFragment = item.term, let termContent = termFragment.inlineContent {
+                        termText = renderTextFragments(termContent, level: level)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    
+                    var defText = ""
+                    if let definition = item.definition, let defContent = definition.content {
+                        defText = renderTextFragments(defContent, level: level)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    
+                    if !termText.isEmpty {
+                        output += "**\(termText)**: \(defText)\n\n"
+                    }
+                }
             }
 
         case "code":
@@ -299,6 +363,14 @@ This page has minimal content in the API response. For complete details:
                 }
             }
 
+        case "codeVoice":
+            // Apple DocC uses codeVoice for inline code
+            if let codeValue = fragment.code {
+                output += "`\(codeValue.text)`"
+            } else if let inlineCode = fragment.inlineCode {
+                output += "`\(inlineCode)`"
+            }
+
         case "inlineCode":
             if let inlineCode = fragment.inlineCode {
                 output += "`\(inlineCode)`"
@@ -308,11 +380,17 @@ This page has minimal content in the API response. For complete details:
             if let emphasis = fragment.emphasis {
                 let rendered = renderTextFragments(emphasis, level: level)
                 output += "*\(rendered.trimmingCharacters(in: .whitespacesAndNewlines))*"
+            } else if let inlineContent = fragment.inlineContent {
+                let rendered = renderTextFragments(inlineContent, level: level)
+                output += "*\(rendered.trimmingCharacters(in: .whitespacesAndNewlines))*"
             }
 
         case "strong":
             if let strong = fragment.strong {
                 let rendered = renderTextFragments(strong, level: level)
+                output += "**\(rendered.trimmingCharacters(in: .whitespacesAndNewlines))**"
+            } else if let inlineContent = fragment.inlineContent {
+                let rendered = renderTextFragments(inlineContent, level: level)
                 output += "**\(rendered.trimmingCharacters(in: .whitespacesAndNewlines))**"
             }
 
@@ -324,6 +402,16 @@ This page has minimal content in the API response. For complete details:
                 } else {
                     output += "<\(normalizedURL)>"
                 }
+            }
+
+        case "reference":
+            // Apple DocC uses "reference" type with identifier
+            if let identifier = fragment.identifier {
+                let parts = identifier.components(separatedBy: "/")
+                let name = parts.last ?? identifier
+                let readableName = name.replacingOccurrences(of: "-", with: " ").capitalized
+                let url = normalizedURLString(identifier)
+                output += "[\(readableName)](\(url))"
             }
 
         case "image":
@@ -340,11 +428,6 @@ This page has minimal content in the API response. For complete details:
             if let content = fragment.content {
                 let rendered = renderTextFragments(content, level: level).trimmingCharacters(in: .whitespacesAndNewlines)
                 output += "- \(rendered)\n"
-            }
-
-        case "table":
-            if let content = fragment.content {
-                output += renderTextFragments(content, level: level)
             }
 
         case "parameter":
@@ -366,9 +449,13 @@ This page has minimal content in the API response. For complete details:
             }
 
         default:
-            // Handle unknown types by rendering text if available
+            // Handle unknown types by rendering any available content
             if let text = fragment.text {
                 output += text
+            } else if let inlineContent = fragment.inlineContent {
+                output += renderTextFragments(inlineContent, level: level)
+            } else if let content = fragment.content {
+                output += renderTextFragments(content, level: level)
             }
         }
 
@@ -377,6 +464,48 @@ This page has minimal content in the API response. For complete details:
             output += String(repeating: "\n", count: newlines)
         }
 
+        return output
+    }
+
+    /// Renders a table from a TextFragment with rows, alignments, and header
+    private func renderTable(_ fragment: TextFragment) -> String {
+        guard let rows = fragment.rows, !rows.isEmpty else {
+            return ""
+        }
+        
+        var output = "\n"
+        let hasHeader = fragment.header == "row"
+        let alignments = fragment.alignments ?? []
+        
+        for (rowIndex, row) in rows.enumerated() {
+            var cellContents: [String] = []
+            for cell in row {
+                let cellText = renderTextFragments(cell, level: 0)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "\n", with: " ")
+                cellContents.append(cellText)
+            }
+            
+            output += "| \(cellContents.joined(separator: " | ")) |\n"
+            
+            if rowIndex == 0 && hasHeader {
+                var separators: [String] = []
+                for (index, _) in cellContents.enumerated() {
+                    let alignment = index < alignments.count ? alignments[index] : "left"
+                    switch alignment {
+                    case "center":
+                        separators.append(":---:")
+                    case "right":
+                        separators.append("---:")
+                    default:
+                        separators.append("---")
+                    }
+                }
+                output += "| \(separators.joined(separator: " | ")) |\n"
+            }
+        }
+        
+        output += "\n"
         return output
     }
 

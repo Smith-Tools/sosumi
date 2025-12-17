@@ -1,11 +1,13 @@
-import XCTest
+import Testing
 @testable import SosumiDocs
 
-final class RenderNodeParsingTests: XCTestCase {
+@Suite("RenderNode Parsing Tests")
+struct RenderNodeParsingTests {
 
     // MARK: - Content Type Classification Tests
 
-    func testClassifySampleCode() {
+    @Test("Classify sample code")
+    func classifySampleCode() {
         let documentation = AppleDocumentation(
             metadata: DocumentationMetadata(role: "sampleCode"),
             kind: "article"
@@ -14,10 +16,11 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let contentType = client.classifyContentType(documentation)
 
-        XCTAssertEqual(contentType, .sampleCode, "Should classify as sample code when kind=article and role=sampleCode")
+        #expect(contentType == .sampleCode, "Should classify as sample code when kind=article and role=sampleCode")
     }
 
-    func testClassifyArticle() {
+    @Test("Classify article")
+    func classifyArticle() {
         let documentation = AppleDocumentation(
             metadata: DocumentationMetadata(role: "article"),
             kind: "article"
@@ -26,10 +29,11 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let contentType = client.classifyContentType(documentation)
 
-        XCTAssertEqual(contentType, .article, "Should classify as article when kind=article and role != sampleCode")
+        #expect(contentType == .article, "Should classify as article when kind=article and role != sampleCode")
     }
 
-    func testClassifySymbol() {
+    @Test("Classify symbol")
+    func classifySymbol() {
         let documentation = AppleDocumentation(
             metadata: DocumentationMetadata(),
             kind: "symbol"
@@ -38,10 +42,11 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let contentType = client.classifyContentType(documentation)
 
-        XCTAssertEqual(contentType, .symbol, "Should classify as symbol when kind=symbol")
+        #expect(contentType == .symbol, "Should classify as symbol when kind=symbol")
     }
 
-    func testClassifyTutorial() {
+    @Test("Classify tutorial")
+    func classifyTutorial() {
         let documentation = AppleDocumentation(
             metadata: DocumentationMetadata(),
             kind: "tutorial"
@@ -50,10 +55,11 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let contentType = client.classifyContentType(documentation)
 
-        XCTAssertEqual(contentType, .tutorial, "Should classify as tutorial when kind=tutorial")
+        #expect(contentType == .tutorial, "Should classify as tutorial when kind=tutorial")
     }
 
-    func testClassifyGeneric() {
+    @Test("Classify generic")
+    func classifyGeneric() {
         let documentation = AppleDocumentation(
             metadata: DocumentationMetadata(),
             kind: "unknown"
@@ -62,12 +68,13 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let contentType = client.classifyContentType(documentation)
 
-        XCTAssertEqual(contentType, .generic, "Should classify as generic for unknown kinds")
+        #expect(contentType == .generic, "Should classify as generic for unknown kinds")
     }
 
     // MARK: - Custom Metadata Extraction Tests
 
-    func testExtractCustomMetadata() {
+    @Test("Extract custom metadata")
+    func extractCustomMetadata() {
         let customMetadata = CustomMetadataValue(
             requirements: ["iOS 14+", "Xcode 12+"],
             estimatedTime: "15 minutes",
@@ -80,23 +87,25 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractCustomMetadata(metadata)
 
-        XCTAssertEqual(result["requirements"] as? [String], ["iOS 14+", "Xcode 12+"])
-        XCTAssertEqual(result["estimatedTime"] as? String, "15 minutes")
-        XCTAssertEqual(result["skillLevel"] as? String, "Beginner")
-        XCTAssertEqual(result["prerequisites"] as? [String], ["Swift basics"])
-        XCTAssertEqual(result["tags"] as? [String], ["SwiftUI", "iOS"])
+        #expect(result["requirements"] as? [String] == ["iOS 14+", "Xcode 12+"])
+        #expect(result["estimatedTime"] as? String == "15 minutes")
+        #expect(result["skillLevel"] as? String == "Beginner")
+        #expect(result["prerequisites"] as? [String] == ["Swift basics"])
+        #expect(result["tags"] as? [String] == ["SwiftUI", "iOS"])
     }
 
-    func testExtractCustomMetadataNil() {
+    @Test("Extract custom metadata nil")
+    func extractCustomMetadataNil() {
         let client = AppleDocumentationClient()
         let result = client.extractCustomMetadata(nil)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty dictionary for nil metadata")
+        #expect(result.isEmpty, "Should return empty dictionary for nil metadata")
     }
 
     // MARK: - Relationship Extraction Tests
 
-    func testExtractRelationships() {
+    @Test("Extract relationships")
+    func extractRelationships() {
         let relationshipsSection = RelationshipsSection(
             type: "conformances",
             identifiers: ["Identifiable", "ObservableObject"]
@@ -105,27 +114,30 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractRelationships([relationshipsSection])
 
-        XCTAssertEqual(result["conformances"], ["Identifiable", "ObservableObject"])
-        XCTAssertEqual(result.count, 1, "Should extract one relationship type")
+        #expect(result["conformances"] == ["Identifiable", "ObservableObject"])
+        #expect(result.count == 1, "Should extract one relationship type")
     }
 
-    func testExtractRelationshipsEmpty() {
+    @Test("Extract relationships empty")
+    func extractRelationshipsEmpty() {
         let client = AppleDocumentationClient()
         let result = client.extractRelationships([])
 
-        XCTAssertTrue(result.isEmpty, "Should return empty dictionary for empty sections")
+        #expect(result.isEmpty, "Should return empty dictionary for empty sections")
     }
 
-    func testExtractRelationshipsNil() {
+    @Test("Extract relationships nil")
+    func extractRelationshipsNil() {
         let client = AppleDocumentationClient()
         let result = client.extractRelationships(nil)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty dictionary for nil sections")
+        #expect(result.isEmpty, "Should return empty dictionary for nil sections")
     }
 
     // MARK: - Topic Extraction Tests
 
-    func testExtractTopics() {
+    @Test("Extract topics")
+    func extractTopics() {
         let topicSection = TopicSection(
             title: "Related Topics",
             identifiers: ["doc://SwiftUI/View", "doc://SwiftUI/ViewModifier"]
@@ -134,28 +146,31 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractTopics([topicSection])
 
-        XCTAssertEqual(result.count, 2, "Should extract two topics")
-        XCTAssertTrue(result.contains("doc://SwiftUI/View"))
-        XCTAssertTrue(result.contains("doc://SwiftUI/ViewModifier"))
+        #expect(result.count == 2, "Should extract two topics")
+        #expect(result.contains("doc://SwiftUI/View"))
+        #expect(result.contains("doc://SwiftUI/ViewModifier"))
     }
 
-    func testExtractTopicsEmpty() {
+    @Test("Extract topics empty")
+    func extractTopicsEmpty() {
         let client = AppleDocumentationClient()
         let result = client.extractTopics([])
 
-        XCTAssertTrue(result.isEmpty, "Should return empty array for empty sections")
+        #expect(result.isEmpty, "Should return empty array for empty sections")
     }
 
-    func testExtractTopicsNil() {
+    @Test("Extract topics nil")
+    func extractTopicsNil() {
         let client = AppleDocumentationClient()
         let result = client.extractTopics(nil)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty array for nil sections")
+        #expect(result.isEmpty, "Should return empty array for nil sections")
     }
 
     // MARK: - Hierarchy Extraction Tests
 
-    func testExtractHierarchy() {
+    @Test("Extract hierarchy")
+    func extractHierarchy() {
         let hierarchy = Hierarchy(paths: [
             ["SwiftUI", "Views", "Controls", "Button"],
             ["SwiftUI", "Buttons", "Button"]
@@ -164,27 +179,30 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractHierarchy(hierarchy)
 
-        XCTAssertEqual(result, ["SwiftUI", "Views", "Controls", "Button"], "Should return first breadcrumb path")
+        #expect(result == ["SwiftUI", "Views", "Controls", "Button"], "Should return first breadcrumb path")
     }
 
-    func testExtractHierarchyEmpty() {
+    @Test("Extract hierarchy empty")
+    func extractHierarchyEmpty() {
         let hierarchy = Hierarchy(paths: [])
         let client = AppleDocumentationClient()
         let result = client.extractHierarchy(hierarchy)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty array for empty paths")
+        #expect(result.isEmpty, "Should return empty array for empty paths")
     }
 
-    func testExtractHierarchyNil() {
+    @Test("Extract hierarchy nil")
+    func extractHierarchyNil() {
         let client = AppleDocumentationClient()
         let result = client.extractHierarchy(nil)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty array for nil hierarchy")
+        #expect(result.isEmpty, "Should return empty array for nil hierarchy")
     }
 
     // MARK: - Platform Extraction Tests
 
-    func testExtractPlatforms() {
+    @Test("Extract platforms")
+    func extractPlatforms() {
         let platforms = [
             DocumentationPlatform(name: "iOS", introducedAt: "14.0"),
             DocumentationPlatform(name: "macOS", introducedAt: "11.0"),
@@ -195,13 +213,14 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractPlatforms(metadata)
 
-        XCTAssertEqual(result.count, 3)
-        XCTAssertTrue(result.contains("iOS (14.0+)"))
-        XCTAssertTrue(result.contains("macOS (11.0+)"))
-        XCTAssertTrue(result.contains("watchOS (7.0+)"))
+        #expect(result.count == 3)
+        #expect(result.contains("iOS (14.0+)"))
+        #expect(result.contains("macOS (11.0+)"))
+        #expect(result.contains("watchOS (7.0+)"))
     }
 
-    func testExtractPlatformsWithoutVersions() {
+    @Test("Extract platforms without versions")
+    func extractPlatformsWithoutVersions() {
         let platforms = [
             DocumentationPlatform(name: "iOS"),
             DocumentationPlatform(name: "macOS")
@@ -211,21 +230,23 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractPlatforms(metadata)
 
-        XCTAssertEqual(result.count, 2)
-        XCTAssertTrue(result.contains("iOS"))
-        XCTAssertTrue(result.contains("macOS"))
+        #expect(result.count == 2)
+        #expect(result.contains("iOS"))
+        #expect(result.contains("macOS"))
     }
 
-    func testExtractPlatformsNil() {
+    @Test("Extract platforms nil")
+    func extractPlatformsNil() {
         let client = AppleDocumentationClient()
         let result = client.extractPlatforms(nil)
 
-        XCTAssertTrue(result.isEmpty, "Should return empty array for nil metadata")
+        #expect(result.isEmpty, "Should return empty array for nil metadata")
     }
 
     // MARK: - Full Metadata Extraction Tests
 
-    func testExtractMetadataComplete() {
+    @Test("Extract metadata complete")
+    func extractMetadataComplete() {
         let customMetadata = CustomMetadataValue(
             requirements: ["iOS 14+"],
             estimatedTime: "30 minutes"
@@ -261,17 +282,18 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractMetadata(documentation)
 
-        XCTAssertEqual(result.contentType, .sampleCode)
-        XCTAssertEqual(result.roleHeading, "Sample Code")
-        XCTAssertEqual(result.requirements, ["iOS 14+"])
-        XCTAssertEqual(result.timeEstimate, "30 minutes")
-        XCTAssertEqual(result.platforms, ["iOS (14.0+)"])
-        XCTAssertEqual(result.relationships["conformances"], ["View"])
-        XCTAssertEqual(result.relatedTopics, ["doc://SwiftUI/View"])
-        XCTAssertEqual(result.breadcrumbs, ["SwiftUI", "Views", "Button"])
+        #expect(result.contentType == .sampleCode)
+        #expect(result.roleHeading == "Sample Code")
+        #expect(result.requirements == ["iOS 14+"])
+        #expect(result.timeEstimate == "30 minutes")
+        #expect(result.platforms == ["iOS (14.0+)"])
+        #expect(result.relationships["conformances"] == ["View"])
+        #expect(result.relatedTopics == ["doc://SwiftUI/View"])
+        #expect(result.breadcrumbs == ["SwiftUI", "Views", "Button"])
     }
 
-    func testExtractMetadataMinimal() {
+    @Test("Extract metadata minimal")
+    func extractMetadataMinimal() {
         let documentation = AppleDocumentation(
             kind: "symbol"
         )
@@ -279,13 +301,13 @@ final class RenderNodeParsingTests: XCTestCase {
         let client = AppleDocumentationClient()
         let result = client.extractMetadata(documentation)
 
-        XCTAssertEqual(result.contentType, .symbol)
-        XCTAssertNil(result.roleHeading)
-        XCTAssertTrue(result.requirements.isEmpty)
-        XCTAssertNil(result.timeEstimate)
-        XCTAssertTrue(result.platforms.isEmpty)
-        XCTAssertTrue(result.relationships.isEmpty)
-        XCTAssertTrue(result.relatedTopics.isEmpty)
-        XCTAssertTrue(result.breadcrumbs.isEmpty)
+        #expect(result.contentType == .symbol)
+        #expect(result.roleHeading == nil)
+        #expect(result.requirements.isEmpty)
+        #expect(result.timeEstimate == nil)
+        #expect(result.platforms.isEmpty)
+        #expect(result.relationships.isEmpty)
+        #expect(result.relatedTopics.isEmpty)
+        #expect(result.breadcrumbs.isEmpty)
     }
 }

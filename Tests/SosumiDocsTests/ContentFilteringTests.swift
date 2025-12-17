@@ -1,11 +1,13 @@
-import XCTest
+import Testing
 @testable import SosumiDocs
 
-final class ContentFilteringTests: XCTestCase {
+@Suite("Content Filtering Tests")
+struct ContentFilteringTests {
 
     // MARK: - Content Type Filtering Tests
 
-    func testFilterByContentType() {
+    @Test("Filter by content type")
+    func filterByContentType() {
         let filter = ContentTypeFilter(contentType: .sampleCode)
 
         let sampleCodeDoc = AppleDocumentation(
@@ -34,14 +36,13 @@ final class ContentFilteringTests: XCTestCase {
             type: "article"
         )
 
-        // The filtering happens internally, but we can test the logic
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             sampleCodeResult,
             metadata: sampleCodeMetadata,
             filter: filter
         ), "Sample code should pass sample code filter")
 
-        XCTAssertFalse(client.passesFilter(
+        #expect(!client.passesFilter(
             articleResult,
             metadata: articleMetadata,
             filter: filter
@@ -50,7 +51,8 @@ final class ContentFilteringTests: XCTestCase {
 
     // MARK: - Platform Filtering Tests
 
-    func testFilterByPlatform() {
+    @Test("Filter by platform")
+    func filterByPlatform() {
         let filter = ContentTypeFilter(requiresPlatforms: ["iOS 15+"])
 
         let iOSDoc = AppleDocumentation(
@@ -75,20 +77,21 @@ final class ContentFilteringTests: XCTestCase {
             type: "symbol"
         )
 
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: iOSMetadata,
             filter: filter
         ), "iOS 15+ should pass iOS 15+ filter")
 
-        XCTAssertFalse(client.passesFilter(
+        #expect(!client.passesFilter(
             result,
             metadata: macOSMetadata,
             filter: filter
         ), "macOS should not pass iOS 15+ filter")
     }
 
-    func testFilterByMultiplePlatforms() {
+    @Test("Filter by multiple platforms")
+    func filterByMultiplePlatforms() {
         let filter = ContentTypeFilter(requiresPlatforms: ["iOS", "macOS"])
 
         let multiPlatformDoc = AppleDocumentation(
@@ -116,14 +119,14 @@ final class ContentFilteringTests: XCTestCase {
             type: "symbol"
         )
 
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: multiPlatformMetadata,
             filter: filter
         ), "Multi-platform should pass iOS/macOS filter")
 
         // Note: The current implementation requires at least one platform match
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: iOSOnlyMetadata,
             filter: filter
@@ -132,7 +135,8 @@ final class ContentFilteringTests: XCTestCase {
 
     // MARK: - Time Estimate Filtering Tests
 
-    func testFilterByTimeEstimate() {
+    @Test("Filter by time estimate")
+    func filterByTimeEstimate() {
         let filter = ContentTypeFilter(maxTimeEstimate: 30)
 
         let quickDoc = AppleDocumentation(
@@ -157,20 +161,21 @@ final class ContentFilteringTests: XCTestCase {
             type: "tutorial"
         )
 
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: quickMetadata,
             filter: filter
         ), "15 minutes should pass 30 minute max filter")
 
-        XCTAssertFalse(client.passesFilter(
+        #expect(!client.passesFilter(
             result,
             metadata: longMetadata,
             filter: filter
         ), "45 minutes should not pass 30 minute max filter")
     }
 
-    func testFilterByComplexTimeEstimate() {
+    @Test("Filter by complex time estimate")
+    func filterByComplexTimeEstimate() {
         let filter = ContentTypeFilter(maxTimeEstimate: 90)
 
         let doc = AppleDocumentation(
@@ -188,7 +193,7 @@ final class ContentFilteringTests: XCTestCase {
             type: "tutorial"
         )
 
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: metadata,
             filter: filter
@@ -197,7 +202,8 @@ final class ContentFilteringTests: XCTestCase {
 
     // MARK: - Relevance Scoring Tests
 
-    func testRelevanceScoring() {
+    @Test("Relevance scoring")
+    func relevanceScoring() {
         let client = AppleDocumentationClient()
 
         let exactMatch = DocumentationSearchResult(
@@ -225,70 +231,74 @@ final class ContentFilteringTests: XCTestCase {
         let partialScore = client.calculateBaseRelevance(partialMatch, query: "Button")
         let noMatchScore = client.calculateBaseRelevance(noMatch, query: "Button")
 
-        XCTAssertGreaterThan(exactScore, partialScore, "Exact match should score higher than partial")
-        XCTAssertGreaterThan(partialScore, noMatchScore, "Partial match should score higher than no match")
-        XCTAssertGreaterThan(noMatchScore, 0, "No match should still have some base score")
+        #expect(exactScore > partialScore, "Exact match should score higher than partial")
+        #expect(partialScore > noMatchScore, "Partial match should score higher than no match")
+        #expect(noMatchScore > 0, "No match should still have some base score")
     }
 
-    func testContentTypeBoost() {
+    @Test("Content type boost")
+    func contentTypeBoost() {
         let client = AppleDocumentationClient()
 
         // Sample code boost for "example" query
         let sampleCodeBoost = client.calculateContentTypeBoost(contentType: .sampleCode, query: "example")
         let articleBoost = client.calculateContentTypeBoost(contentType: .article, query: "example")
 
-        XCTAssertGreaterThan(sampleCodeBoost, articleBoost, "Sample code should get boost for 'example' query")
+        #expect(sampleCodeBoost > articleBoost, "Sample code should get boost for 'example' query")
 
         // Tutorial boost for "tutorial" query
         let tutorialBoost = client.calculateContentTypeBoost(contentType: .tutorial, query: "tutorial")
         let symbolBoost = client.calculateContentTypeBoost(contentType: .symbol, query: "tutorial")
 
-        XCTAssertGreaterThan(tutorialBoost, symbolBoost, "Tutorial should get boost for 'tutorial' query")
+        #expect(tutorialBoost > symbolBoost, "Tutorial should get boost for 'tutorial' query")
     }
 
     // MARK: - Time Parsing Tests
 
-    func testParseTimeEstimate() {
+    @Test("Parse time estimate")
+    func parseTimeEstimate() {
         let client = AppleDocumentationClient()
 
         // Test minutes
-        XCTAssertEqual(client.parseTimeEstimate("15 minutes"), 15)
-        XCTAssertEqual(client.parseTimeEstimate("30 minute"), 30)
+        #expect(client.parseTimeEstimate("15 minutes") == 15)
+        #expect(client.parseTimeEstimate("30 minute") == 30)
 
         // Test hours
-        XCTAssertEqual(client.parseTimeEstimate("1 hour"), 60)
-        XCTAssertEqual(client.parseTimeEstimate("2 hours"), 120)
+        #expect(client.parseTimeEstimate("1 hour") == 60)
+        #expect(client.parseTimeEstimate("2 hours") == 120)
 
         // Test combined
-        XCTAssertEqual(client.parseTimeEstimate("1 hour 30 minutes"), 90)
-        XCTAssertEqual(client.parseTimeEstimate("2 hours 15 minutes"), 135)
+        #expect(client.parseTimeEstimate("1 hour 30 minutes") == 90)
+        #expect(client.parseTimeEstimate("2 hours 15 minutes") == 135)
 
         // Test fallback
-        XCTAssertEqual(client.parseTimeEstimate("unknown format"), 30)
+        #expect(client.parseTimeEstimate("unknown format") == 30)
     }
 
     // MARK: - URL Path Extraction Tests
 
-    func testExtractDocumentationPath() {
+    @Test("Extract documentation path")
+    func extractDocumentationPath() {
         let client = AppleDocumentationClient()
 
         let url1 = "https://developer.apple.com/documentation/swiftui/button"
         let path1 = client.extractDocumentationPath(from: url1)
-        XCTAssertEqual(path1, "swiftui/button")
+        #expect(path1 == "swiftui/button")
 
         let url2 = "https://developer.apple.com/documentation/uikit/uiviewcontroller"
         let path2 = client.extractDocumentationPath(from: url2)
-        XCTAssertEqual(path2, "uikit/uiviewcontroller")
+        #expect(path2 == "uikit/uiviewcontroller")
 
         // Test fallback
         let url3 = "https://example.com/some/path"
         let path3 = client.extractDocumentationPath(from: url3)
-        XCTAssertEqual(path3, "https://example.com/some/path")
+        #expect(path3 == "https://example.com/some/path")
     }
 
     // MARK: - Combined Filter Tests
 
-    func testCombinedFiltering() {
+    @Test("Combined filtering")
+    func combinedFiltering() {
         let filter = ContentTypeFilter(
             contentType: .tutorial,
             requiresPlatforms: ["iOS"],
@@ -321,13 +331,13 @@ final class ContentFilteringTests: XCTestCase {
             type: "tutorial"
         )
 
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: matchingMetadata,
             filter: filter
         ), "Matching doc should pass all filters")
 
-        XCTAssertFalse(client.passesFilter(
+        #expect(!client.passesFilter(
             result,
             metadata: nonMatchingMetadata,
             filter: filter
@@ -336,7 +346,8 @@ final class ContentFilteringTests: XCTestCase {
 
     // MARK: - Edge Cases Tests
 
-    func testFilterWithNilMetadata() {
+    @Test("Filter with nil metadata")
+    func filterWithNilMetadata() {
         let filter = ContentTypeFilter(contentType: .sampleCode)
 
         let result = DocumentationSearchResult(
@@ -348,14 +359,15 @@ final class ContentFilteringTests: XCTestCase {
         let client = AppleDocumentationClient()
 
         // Should handle nil metadata gracefully
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: nil,
             filter: filter
         ), "Should pass filter with nil metadata when filter requires metadata")
     }
 
-    func testEmptyFilter() {
+    @Test("Empty filter")
+    func emptyFilter() {
         let emptyFilter = ContentTypeFilter()
 
         let doc = AppleDocumentation()
@@ -369,7 +381,7 @@ final class ContentFilteringTests: XCTestCase {
         )
 
         // Empty filter should pass everything
-        XCTAssertTrue(client.passesFilter(
+        #expect(client.passesFilter(
             result,
             metadata: metadata,
             filter: emptyFilter
