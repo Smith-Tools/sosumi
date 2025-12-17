@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "sosumi",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v15)
     ],
     products: [
         .executable(
@@ -37,6 +37,7 @@ let package = Package(
                 "SosumiWWDC",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "SmithRAGCommands", package: "smith-rag"),
             ]
         ),
         // SosumiDocs: Documentation Fetching Logic

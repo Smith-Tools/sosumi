@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import SosumiDocs
 import SosumiWWDC
+import SmithRAGCommands
 
 @main
 struct SosumiCLI: AsyncParsableCommand {
@@ -20,6 +21,8 @@ struct SosumiCLI: AsyncParsableCommand {
             TestCommand.self,
             AppleDocCommand.self,
             RAGSearchCommand.self,
+            RAGFetchCommand.self,
+            RAGStatusCommand.self,
             IngestRAGCommand.self,
             EmbedMissing.self
         ]
@@ -1210,65 +1213,7 @@ extension String {
     }
 }
 
-// MARK: - RAG Search Command (Semantic Search)
-struct RAGSearchCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "rag-search",
-        abstract: "Semantic search using RAG (embeddings + reranker)"
-    )
-    
-    @Argument(help: "Search query")
-    var query: String
-    
-    @Option(name: .shortAndLong, help: "Maximum number of results")
-    var limit: Int = 5
-    
-    @Flag(name: .long, help: "Skip reranking (faster)")
-    var noRerank: Bool = false
-    
-    @Flag(name: .long, help: "Output as JSON")
-    var json: Bool = false
-    
-    func run() async throws {
-        do {
-            let adapter = try SosumiRAGAdapter()
-            
-            let results = try await adapter.search(
-                query: query,
-                limit: limit,
-                useReranker: !noRerank
-            )
-            
-            if json {
-                let output = results.map { r in
-                    ["id": r.chunkId, "session": r.sessionId ?? "", "year": r.year ?? 0, "score": r.score, "snippet": r.snippet] as [String : Any]
-                }
-                if let data = try? JSONSerialization.data(withJSONObject: output, options: .prettyPrinted),
-                   let str = String(data: data, encoding: .utf8) {
-                    print(str)
-                }
-            } else {
-                if results.isEmpty {
-                    print("No results found for: \(query)")
-                    print("💡 Run 'sosumi ingest-rag' first to build the RAG database")
-                } else {
-                    print("🔍 Found \(results.count) matches:\n")
-                    for (i, result) in results.enumerated() {
-                        let session = result.sessionId.map { "Session \($0)" } ?? result.chunkId
-                        let year = result.year.map { " (\($0))" } ?? ""
-                        let score = String(format: "%.2f", result.score)
-                        print("[\(i + 1)] \(session)\(year) (score: \(score))")
-                        print("    \(result.snippet.prefix(200))")
-                        print("")
-                    }
-                }
-            }
-        } catch {
-            print("❌ RAG search failed: \(error)")
-            print("💡 Make sure Ollama is running with nomic-embed-text model")
-        }
-    }
-}
+// RAGSearchCommand provided by SmithRAGCommands
 
 // MARK: - Ingest RAG Command
 struct IngestRAGCommand: AsyncParsableCommand {
