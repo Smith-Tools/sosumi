@@ -1,6 +1,6 @@
 import Foundation
 
-import SmithDocExtractor
+import SmithDoccExtractor
 
 // MARK: - Compatibility Aliases
 // These allow existing code to continue working while we transition to generic types

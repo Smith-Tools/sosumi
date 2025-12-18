@@ -1,5 +1,5 @@
 import Foundation
-import SmithDocExtractor
+import SmithDoccExtractor
 
 /// Swift port of Apple documentation JSON to Markdown renderer
 /// Based on sosumi.ai TypeScript rendering implementation
@@ -311,7 +311,7 @@ This page has minimal content in the API response. For complete details:
         case "unorderedList":
             if let items = fragment.items {
                 for item in items {
-                    if let itemContent = item.content {
+                    if case .item(let termListItem) = item, let itemContent = termListItem.content {
                         let rendered = renderTextFragments(itemContent, level: level)
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         output += "- \(rendered)\n"
@@ -323,7 +323,7 @@ This page has minimal content in the API response. For complete details:
         case "orderedList":
             if let items = fragment.items {
                 for (index, item) in items.enumerated() {
-                    if let itemContent = item.content {
+                    if case .item(let termListItem) = item, let itemContent = termListItem.content {
                         let rendered = renderTextFragments(itemContent, level: level)
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         output += "\(index + 1). \(rendered)\n"
@@ -335,20 +335,22 @@ This page has minimal content in the API response. For complete details:
         case "termList":
             if let items = fragment.items {
                 for item in items {
-                    var termText = ""
-                    if let termFragment = item.term, let termContent = termFragment.inlineContent {
-                        termText = renderTextFragments(termContent, level: level)
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    
-                    var defText = ""
-                    if let definition = item.definition, let defContent = definition.content {
-                        defText = renderTextFragments(defContent, level: level)
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    
-                    if !termText.isEmpty {
-                        output += "**\(termText)**: \(defText)\n\n"
+                    if case .item(let termListItem) = item {
+                        var termText = ""
+                        if let termFragment = termListItem.term, let termContent = termFragment.inlineContent {
+                            termText = renderTextFragments(termContent, level: level)
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                        
+                        var defText = ""
+                        if let definition = termListItem.definition, let defContent = definition.content {
+                            defText = renderTextFragments(defContent, level: level)
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                        
+                        if !termText.isEmpty {
+                            output += "**\(termText)**: \(defText)\n\n"
+                        }
                     }
                 }
             }

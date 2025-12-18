@@ -27,7 +27,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-testing.git", .upToNextMinor(from: "0.9.0")),
         .package(path: "../smith-rag"),
-        .package(path: "../smith-doc-extractor"),
+        .package(path: "../smith-docc-extractor"),
     ],
     targets: [
         .executableTarget(
@@ -46,7 +46,7 @@ let package = Package(
             dependencies: [
                 .product(name: "SmithRAG", package: "smith-rag"),
                 .product(name: "Logging", package: "swift-log"),
-                .product(name: "SmithDocExtractor", package: "smith-doc-extractor"),
+                .product(name: "SmithDoccExtractor", package: "smith-docc-extractor"),
             ]
         ),
         .target(
