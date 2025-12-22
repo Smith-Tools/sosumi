@@ -3,6 +3,7 @@ import Foundation
 import SosumiDocs
 import SosumiWWDC
 import SmithRAGCommands
+import SmithRAG
 
 @main
 struct SosumiCLI: AsyncParsableCommand {
@@ -20,7 +21,7 @@ struct SosumiCLI: AsyncParsableCommand {
             UpdateCommand.self,
             TestCommand.self,
             AppleDocCommand.self,
-            RAGSearchCommand.self,
+            RAGSearch.self,
             RAGFetchCommand.self,
             RAGStatusCommand.self,
             IngestRAGCommand.self,
@@ -1213,7 +1214,72 @@ extension String {
     }
 }
 
-// RAGSearchCommand provided by SmithRAGCommands
+// MARK: - RAG Search Command (Local with sosumi.db default)
+struct RAGSearch: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "rag-search",
+        abstract: "Search for relevant content using RAG"
+    )
+    
+    @Argument(help: "Search query")
+    var query: String
+    
+    @Option(name: .shortAndLong, help: "Maximum number of results")
+    var limit: Int = 5
+    
+    @Option(name: .long, help: "Number of candidates for reranking")
+    var candidates: Int = 100
+    
+    @Option(name: .long, help: "Database file path")
+    var database: String = defaultSosumiRAGDatabasePath()
+    
+    @Option(name: .long, help: "MLX model ID")
+    var model: String = "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"
+    
+    @Flag(name: .long, help: "Skip reranking (faster but less precise)")
+    var noRerank: Bool = false
+    
+    @Flag(name: .long, help: "Use Ollama backend instead of MLX")
+    var ollama: Bool = false
+    
+    @Flag(name: .long, help: "Output as JSON")
+    var json: Bool = false
+    
+    func run() async throws {
+        let engine: SmithRAG.RAGEngine
+        if ollama {
+            engine = try SmithRAG.RAGEngine(databasePath: database)
+        } else {
+            engine = try SmithRAG.RAGEngine(databasePath: database, mlxModelId: model)
+        }
+        
+        let results = try await engine.search(
+            query: query,
+            limit: limit,
+            candidateCount: candidates,
+            useReranker: !noRerank
+        )
+        
+        if json {
+            let data = try JSONEncoder().encode(results)
+            print(String(data: data, encoding: .utf8)!)
+        } else {
+            if results.isEmpty {
+                print("No results found.")
+            } else {
+                for (i, result) in results.enumerated() {
+                    print("\n[\(i + 1)] \(result.id) (score: \(String(format: "%.2f", result.score)))")
+                    print("    \(result.snippet)")
+                }
+            }
+        }
+    }
+}
+
+func defaultSosumiRAGDatabasePath() -> String {
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    return home.appendingPathComponent(".smith/rag/sosumi.db").path
+}
 
 // MARK: - Ingest RAG Command
 struct IngestRAGCommand: AsyncParsableCommand {
