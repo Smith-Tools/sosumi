@@ -1,5 +1,6 @@
 import Foundation
 import SmithRAG
+import SmithRAGCommands
 
 /// Adapter to use SmithRAG for Sosumi WWDC search operations
 public actor SosumiRAGAdapter {
@@ -86,8 +87,7 @@ public actor SosumiRAGAdapter {
     
     /// Default RAG database path for Sosumi
     public static func defaultRAGDatabasePath() -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".smith/rag/sosumi.db").path
+        RAGDefaults.databasePath(for: .sosumi)
     }
 }
 
