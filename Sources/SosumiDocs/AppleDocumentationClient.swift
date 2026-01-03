@@ -846,6 +846,18 @@ public extension AppleDocumentationClient {
             results.append(contentsOf: fallbackResults)
         }
 
+        // Bound candidate set before metadata-heavy filtering for performance
+        if let limit = limit {
+            let needsMetadata = requiresMetadata(for: searchFilter)
+            let multiplier = needsMetadata ? 6 : 4
+            let maxCandidates = max(limit * multiplier, 40)
+            if results.count > maxCandidates {
+                let scoredResults = results.map { (result: $0, score: calculateBaseRelevance($0, query: query)) }
+                let sorted = scoredResults.sorted { $0.score > $1.score }
+                results = sorted.prefix(maxCandidates).map { $0.result }
+            }
+        }
+
         // Apply intent-based filtering and ranking
         results = try await applyFilter(results, filter: searchFilter, query: query)
 
@@ -1093,14 +1105,18 @@ public extension AppleDocumentationClient {
         query: String
     ) async throws -> [DocumentationSearchResult] {
         var enhancedResults: [EnhancedSearchResult] = []
+        let needsMetadata = requiresMetadata(for: filter)
 
         for result in results {
             var relevance = calculateBaseRelevance(result, query: query)
             var renderNode: AppleDocumentation?
             var extractedMetadata: ExtractedMetadata?
+            let inferredContentType = inferredContentType(from: result)
 
             // Try to fetch full documentation for better filtering
-            if result.url.contains("/documentation/") {
+            let shouldFetchMetadata = needsMetadata ||
+                ((filter.intent != nil && filter.intent != .all) && inferredContentType == nil)
+            if shouldFetchMetadata, result.url.contains("/documentation/") {
                 do {
                     // Extract path from URL for fetching
                     let path = extractDocumentationPath(from: result.url)
@@ -1115,15 +1131,18 @@ public extension AppleDocumentationClient {
                     extractedMetadata = nil
                     renderNode = nil
                 }
+            } else if let inferredContentType = inferredContentType {
+                relevance += calculateContentTypeBoost(contentType: inferredContentType, query: query)
             }
 
             // Apply intent-based relevance boosting
-            if let intent = filter.intent, let contentType = extractedMetadata?.contentType {
+            if let intent = filter.intent,
+               let contentType = extractedMetadata?.contentType ?? inferredContentType {
                 relevance += calculateIntentRelevance(contentType: contentType, intent: intent)
             }
 
             // Apply filters
-            if passesFilter(result, metadata: extractedMetadata, filter: filter) {
+            if passesFilter(result, metadata: extractedMetadata, inferredContentType: inferredContentType, filter: filter) {
                 let enhancedResult = EnhancedSearchResult(
                     originalResult: result,
                     renderNode: renderNode,
@@ -1220,23 +1239,65 @@ public extension AppleDocumentationClient {
         }
     }
 
+    private func inferredContentType(from result: DocumentationSearchResult) -> ContentType? {
+        let type = result.type.lowercased()
+        switch type {
+        case "article":
+            return .article
+        case "tutorial":
+            return .tutorial
+        case "samplecode", "sample_code", "sample-code":
+            return .sampleCode
+        case "symbol":
+            return .symbol
+        default:
+            if isSymbolLikeType(type) {
+                return .symbol
+            }
+            return nil
+        }
+    }
+
+    private func isSymbolLikeType(_ type: String) -> Bool {
+        let symbolTypes: Set<String> = [
+            "class", "struct", "enum", "protocol", "actor", "record",
+            "method", "function", "initializer", "deinitializer", "subscript",
+            "property", "variable", "constant", "case", "typealias", "associatedtype",
+            "operator", "macro", "extension", "instance", "interface", "member"
+        ]
+        return symbolTypes.contains(type)
+    }
+
+    private func requiresMetadata(for filter: ContentTypeFilter) -> Bool {
+        if filter.requiresPlatforms != nil || filter.maxTimeEstimate != nil || filter.minTimeEstimate != nil {
+            return true
+        }
+        if let contentType = filter.contentType, (contentType == .sampleCode || contentType == .generic) {
+            return true
+        }
+        return false
+    }
+
     /// Checks if a result passes the specified filters
     private func passesFilter(
         _ result: DocumentationSearchResult,
         metadata: ExtractedMetadata?,
+        inferredContentType: ContentType?,
         filter: ContentTypeFilter
     ) -> Bool {
         // Content type filtering
-        if let contentTypeFilter = filter.contentType,
-           let metadata = metadata {
-            if metadata.contentType != contentTypeFilter {
+        if let contentTypeFilter = filter.contentType {
+            let resolvedContentType = metadata?.contentType ?? inferredContentType
+            if resolvedContentType != contentTypeFilter {
                 return false
             }
         }
 
         // Platform filtering
-        if let requiredPlatforms = filter.requiresPlatforms,
-           let metadata = metadata {
+        if let requiredPlatforms = filter.requiresPlatforms {
+            guard let metadata = metadata else {
+                return false
+            }
             let platforms = metadata.platforms.map { $0.lowercased() }
 
             for requirement in requiredPlatforms {
@@ -1250,21 +1311,16 @@ public extension AppleDocumentationClient {
         }
 
         // Time estimate filtering
-        if let metadata = metadata {
-            if let maxTime = filter.maxTimeEstimate,
-               let timeStr = metadata.timeEstimate {
-                let timeMinutes = parseTimeEstimate(timeStr)
-                if timeMinutes > maxTime {
-                    return false
-                }
+        if filter.maxTimeEstimate != nil || filter.minTimeEstimate != nil {
+            guard let metadata = metadata, let timeStr = metadata.timeEstimate else {
+                return false
             }
-
-            if let minTime = filter.minTimeEstimate,
-               let timeStr = metadata.timeEstimate {
-                let timeMinutes = parseTimeEstimate(timeStr)
-                if timeMinutes < minTime {
-                    return false
-                }
+            let timeMinutes = parseTimeEstimate(timeStr)
+            if let maxTime = filter.maxTimeEstimate, timeMinutes > maxTime {
+                return false
+            }
+            if let minTime = filter.minTimeEstimate, timeMinutes < minTime {
+                return false
             }
         }
 

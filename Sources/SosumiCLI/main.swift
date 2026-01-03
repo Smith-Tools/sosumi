@@ -294,7 +294,7 @@ struct SosumiCLI: AsyncParsableCommand {
 
                 do {
                     // Build filter from command line options
-                    var filter = ContentTypeFilter()
+                    let filter = ContentTypeFilter()
 
                     // Perform comprehensive search with filtering
                     let allResults = try await client.comprehensiveSearch(
@@ -556,18 +556,14 @@ struct SosumiCLI: AsyncParsableCommand {
                     print("🤖 Using automatic intent detection + comprehensive search")
                 }
 
-                // Perform enhanced comprehensive search with filtering
-                // First get total count without limit, then apply limit for efficiency
-                let allResults = try await client.comprehensiveSearch(
+                // Perform enhanced comprehensive search with filtering (limit applied during search)
+                let limitedResults = try await client.comprehensiveSearch(
                     query: query,
-                    limit: nil,  // Get all results to count them
+                    limit: limit,
                     filter: filter
                 )
 
-                let totalFound = allResults.count
-                let limitedResults = totalFound > limit
-                    ? Array(allResults.prefix(limit))
-                    : allResults
+                let totalFound = limitedResults.count
 
                 if limitedResults.isEmpty {
                     print("❌ No Apple documentation found for: \(query)")
@@ -602,9 +598,8 @@ struct SosumiCLI: AsyncParsableCommand {
                 print(output)
 
                 // Show efficiency information
-                if totalFound > limitedResults.count {
-                    print("\n📊 Found \(totalFound) total results (showing \(limitedResults.count) for efficiency)")
-                    print("💡 For more results: use --limit \(totalFound) or --limit 50")
+                if totalFound >= limit {
+                    print("\n📊 Showing up to \(limit) results (use --limit to adjust)")
                 } else {
                     print("\n📊 Found \(totalFound) results")
                 }
