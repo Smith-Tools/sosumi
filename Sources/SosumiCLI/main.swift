@@ -136,8 +136,9 @@ struct SosumiCLI: AsyncParsableCommand {
                         )
 
                         if matches.isEmpty {
-                            print("❌ No sessions found for number: \(trimmedId)")
-                            print("💡 Session numbers repeat across years. Try a full ID like wwdc2024-\(trimmedId)")
+                            print("❌ No sessions found with session number: \(trimmedId)")
+                            print("💡 Session numbers are not continuous. If you meant a 5-digit session ID, try wwdc2024-10\(trimmedId)")
+                            print("💡 Or search by number: sosumi wwdc \"\(trimmedId)\" --limit 5")
                         } else {
                             let output = renderSessionNumberMatches(
                                 matches,
@@ -832,8 +833,9 @@ struct SosumiCLI: AsyncParsableCommand {
                     )
 
                     if matches.isEmpty {
-                        print("❌ No sessions found for number: \(trimmedId)")
-                        print("💡 Session numbers repeat across years. Use a full ID like wwdc2024-\(trimmedId)")
+                        print("❌ No sessions found with session number: \(trimmedId)")
+                        print("💡 Session numbers are not continuous. If you meant a 5-digit session ID, try wwdc2024-10\(trimmedId)")
+                        print("💡 Or search by number: sosumi wwdc \"\(trimmedId)\" --limit 5")
                     } else {
                         let output = renderSessionNumberMatches(
                             matches,
