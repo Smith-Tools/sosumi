@@ -96,9 +96,6 @@ struct SosumiCLI: AsyncParsableCommand {
 
             case .wwdcSession(let id):
                 // Delegate to session command - use logic directly
-                print("📺 Fetching WWDC session: \(id)")
-                print(String(repeating: "=", count: 50))
-
                 // Validate mode
                 let outputMode: MarkdownFormatter.OutputMode
                 switch mode.lowercased() {
@@ -126,6 +123,37 @@ struct SosumiCLI: AsyncParsableCommand {
                     print("❌ Invalid format: \(format). Use 'markdown', 'json', or 'json-compact'.")
                     throw ExitCode.failure
                 }
+
+                let trimmedId = id.trimmingCharacters(in: .whitespacesAndNewlines)
+                if isNumericSessionNumber(trimmedId) {
+                    print("🔎 Resolving WWDC session number: \(trimmedId)")
+                    print(String(repeating: "=", count: 50))
+                    do {
+                        let matches = try WWDCSearchEngine.findSessionsByNumber(
+                            sessionNumber: trimmedId,
+                            bundlePath: nil,
+                            limit: limit
+                        )
+
+                        if matches.isEmpty {
+                            print("❌ No sessions found for number: \(trimmedId)")
+                            print("💡 Session numbers repeat across years. Try a full ID like wwdc2024-\(trimmedId)")
+                        } else {
+                            let output = renderSessionNumberMatches(
+                                matches,
+                                sessionNumber: trimmedId,
+                                format: outputFormat
+                            )
+                            print(output)
+                        }
+                    } catch {
+                        print("❌ Failed to resolve session number \(trimmedId): \(error)")
+                    }
+                    return
+                }
+
+                print("📺 Fetching WWDC session: \(id)")
+                print(String(repeating: "=", count: 50))
 
                 do {
                     if let result = try WWDCSearchEngine.getSessionById(
@@ -407,6 +435,11 @@ struct SosumiCLI: AsyncParsableCommand {
             if query.range(of: "^(wwdc|tech-talks)\\d{4}-\\d+$", options: .regularExpression) != nil ||
                query.range(of: "^(wwdc|tech-talks)-\\d+$", options: .regularExpression) != nil {
                 return .wwdcSession(id: query)
+            }
+
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isNumericSessionNumber(trimmed) {
+                return .wwdcSession(id: trimmed)
             }
 
             // Single word or short query = likely framework/API
@@ -749,7 +782,7 @@ struct SosumiCLI: AsyncParsableCommand {
             abstract: "Get a specific WWDC session by ID"
         )
 
-        @Argument(help: "WWDC session ID (e.g., wwdc2024-10102)")
+        @Argument(help: "WWDC session ID (e.g., wwdc2024-10102) or session number")
         var sessionId: String
 
         @Option(name: .long, help: "Output mode: user (snippet + link) or agent (full transcript)")
@@ -784,6 +817,36 @@ struct SosumiCLI: AsyncParsableCommand {
             default:
                 print("❌ Invalid format: \(format). Use 'markdown' or 'json'.")
                 throw ExitCode.failure
+            }
+
+            let trimmedId = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isNumericSessionNumber(trimmedId) {
+                print("🔎 Resolving WWDC session number: \(trimmedId)")
+                print(String(repeating: "=", count: 50))
+
+                do {
+                    let matches = try WWDCSearchEngine.findSessionsByNumber(
+                        sessionNumber: trimmedId,
+                        bundlePath: bundle,
+                        limit: 25
+                    )
+
+                    if matches.isEmpty {
+                        print("❌ No sessions found for number: \(trimmedId)")
+                        print("💡 Session numbers repeat across years. Use a full ID like wwdc2024-\(trimmedId)")
+                    } else {
+                        let output = renderSessionNumberMatches(
+                            matches,
+                            sessionNumber: trimmedId,
+                            format: outputFormat
+                        )
+                        print(output)
+                    }
+                } catch {
+                    print("❌ Failed to resolve session number \(trimmedId): \(error)")
+                }
+
+                return
             }
 
             print("📺 Fetching WWDC session: \(sessionId)")
@@ -1394,4 +1457,106 @@ struct EmbedMissing: AsyncParsableCommand {
 func defaultWWDCDatabasePath() -> String {
     let home = FileManager.default.homeDirectoryForCurrentUser
     return home.appendingPathComponent(".claude/resources/databases/wwdc.db").path
+}
+
+private struct SessionNumberMatch: Encodable {
+    let id: String
+    let title: String
+    let year: Int
+    let sessionNumber: String
+    let webUrl: String?
+}
+
+private struct SessionNumberMatchResponse: Encodable {
+    let type: String
+    let query: String
+    let count: Int
+    let matches: [SessionNumberMatch]
+    let note: String
+}
+
+private struct SessionNumberMatchCompact: Encodable {
+    let id: String
+    let title: String
+    let year: Int
+}
+
+private struct SessionNumberMatchCompactResponse: Encodable {
+    let type: String
+    let query: String
+    let count: Int
+    let matches: [SessionNumberMatchCompact]
+}
+
+private func isNumericSessionNumber(_ input: String) -> Bool {
+    let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty, trimmed.count <= 10 else { return false }
+    return trimmed.unicodeScalars.allSatisfy { CharacterSet.decimalDigits.contains($0) }
+}
+
+private func renderSessionNumberMatches(
+    _ matches: [WWDCDatabase.Session],
+    sessionNumber: String,
+    format: MarkdownFormatter.OutputFormat
+) -> String {
+    let sortedMatches = matches.sorted { lhs, rhs in
+        if lhs.year != rhs.year {
+            return lhs.year > rhs.year
+        }
+        return lhs.sessionNumber.compare(rhs.sessionNumber, options: .numeric) == .orderedAscending
+    }
+
+    switch format {
+    case .markdown:
+        var output = "⚠️ Session numbers repeat across years.\n"
+        output += "Matches for session \(sessionNumber):\n\n"
+        for (index, session) in sortedMatches.enumerated() {
+            let canonicalId = "wwdc\(session.year)-\(session.sessionNumber)"
+            output += "\(index + 1). \(canonicalId) — \(session.title) (\(session.year))\n"
+        }
+        output += "\nUse: sosumi session <id>\n"
+        return output
+    case .json:
+        let response = SessionNumberMatchResponse(
+            type: "wwdc_session_number_lookup",
+            query: sessionNumber,
+            count: sortedMatches.count,
+            matches: sortedMatches.map { session in
+                SessionNumberMatch(
+                    id: session.id,
+                    title: session.title,
+                    year: session.year,
+                    sessionNumber: session.sessionNumber,
+                    webUrl: session.webUrl
+                )
+            },
+            note: "Session numbers repeat across years. Use the canonical id (e.g., wwdc2024-\(sessionNumber))."
+        )
+        return encodeJSON(response, pretty: true)
+    case .jsonCompact:
+        let response = SessionNumberMatchCompactResponse(
+            type: "wwdc_session_number_lookup",
+            query: sessionNumber,
+            count: sortedMatches.count,
+            matches: sortedMatches.map { session in
+                SessionNumberMatchCompact(
+                    id: session.id,
+                    title: session.title,
+                    year: session.year
+                )
+            }
+        )
+        return encodeJSON(response, pretty: false)
+    }
+}
+
+private func encodeJSON<T: Encodable>(_ value: T, pretty: Bool) -> String {
+    let encoder = JSONEncoder()
+    if pretty {
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    } else {
+        encoder.outputFormatting = [.sortedKeys]
+    }
+    let data = (try? encoder.encode(value)) ?? Data()
+    return String(data: data, encoding: .utf8) ?? "{}"
 }

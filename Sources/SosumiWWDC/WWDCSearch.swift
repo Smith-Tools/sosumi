@@ -164,6 +164,19 @@ public struct WWDCSearchEngine {
         }
     }
 
+    /// Find sessions by session number across years
+    public static func findSessionsByNumber(
+        sessionNumber: String,
+        bundlePath: String? = nil,
+        limit: Int = 50
+    ) throws -> [WWDCDatabase.Session] {
+        return try performDatabaseSessionNumberLookup(
+            sessionNumber: sessionNumber,
+            bundlePath: bundlePath,
+            limit: limit
+        )
+    }
+
     /// Get database statistics
     public static func getDatabaseStatistics(bundlePath: String? = nil) throws -> String {
         do {
@@ -279,6 +292,38 @@ public struct WWDCSearchEngine {
         defer { database.close() }
 
         return try database.getSessionsByYear(year, limit: limit)
+    }
+
+    private static func performDatabaseSessionNumberLookup(
+        sessionNumber: String,
+        bundlePath: String?,
+        limit: Int
+    ) throws -> [WWDCDatabase.Session] {
+        // Try plain database first (v1.3.0+)
+        if let plainDbPath = getPlainDatabasePath() {
+            let database = WWDCDatabase(databasePath: plainDbPath)
+            defer { database.close() }
+            return try database.getSessionsByNumber(sessionNumber, limit: limit)
+        }
+
+        // Fall back to encrypted bundle (v1.2.0 and earlier)
+        guard let key = getDatabaseEncryptionKey() else {
+            throw WWDCDatabaseError.keyNotFound
+        }
+
+        let bundle = bundlePath ?? getEmbeddedBundlePath()
+        guard FileManager.default.fileExists(atPath: bundle) else {
+            throw SearchError.bundleNotFound
+        }
+
+        // Decrypt and extract bundle
+        let (_, databasePath, _) = try WWDCDatabase.decryptBundle(atPath: bundle, key: key)
+
+        // Open database and get sessions
+        let database = WWDCDatabase(databasePath: databasePath)
+        defer { database.close() }
+
+        return try database.getSessionsByNumber(sessionNumber, limit: limit)
     }
 
     private static func performDatabaseStatistics(bundlePath: String?) throws -> [String: Any] {

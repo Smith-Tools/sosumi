@@ -238,6 +238,9 @@ sosumi wwdc "SwiftUI" --limit 5
 # Fetch by canonical ID
 sosumi session wwdc2024-10102 --mode agent --format markdown
 
+# Resolve a numeric session number across years
+sosumi session 274
+
 # Browse an entire year
 sosumi year 2025 --format json
 

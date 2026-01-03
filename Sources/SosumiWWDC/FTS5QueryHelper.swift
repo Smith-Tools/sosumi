@@ -112,6 +112,18 @@ public struct FTS5QueryHelper {
         return sessionIdChars.isSubset(of: allowedChars)
     }
 
+    /// Validates a session number
+    ///
+    /// Session numbers are digits only (e.g., 274, 10102).
+    public static func isValidSessionNumber(_ sessionNumber: String) -> Bool {
+        let trimmed = sessionNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard trimmed.count <= 10 else { return false }
+
+        let digits = CharacterSet.decimalDigits
+        return trimmed.unicodeScalars.allSatisfy { digits.contains($0) }
+    }
+
     /// Validates a year value
     ///
     /// - Parameter year: The year to validate
@@ -200,6 +212,37 @@ public struct FTS5QueryHelper {
         return query
     }
 
+    /// Builds a safe session number lookup query
+    ///
+    /// - Parameter sessionNumber: The session number to look up
+    /// - Returns: SQL query string
+    /// - Throws: FTS5QueryError if validation fails
+    public static func buildSessionNumberQuery(sessionNumber: String, limit: Int = 50) throws -> String {
+        guard isValidSessionNumber(sessionNumber) else {
+            throw FTS5QueryError.invalidSessionNumber("Session number must be digits only")
+        }
+
+        guard limit > 0 && limit <= 1000 else {
+            throw FTS5QueryError.invalidLimit("Limit must be 1-1000")
+        }
+
+        let escapedNumber = escapeSQLString(sessionNumber.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        let query = """
+        SELECT
+            s.id, s.title, s.year, s.session_number, s.type, s.duration,
+            s.description, s.web_url,
+            t.content, t.word_count
+        FROM sessions s
+        LEFT JOIN transcripts t ON s.id = t.session_id
+        WHERE s.session_number = '\(escapedNumber)'
+        ORDER BY s.year DESC
+        LIMIT \(limit)
+        """
+
+        return query
+    }
+
     /// Builds a safe year-based query
     ///
     /// - Parameters:
@@ -236,6 +279,7 @@ public struct FTS5QueryHelper {
 public enum FTS5QueryError: Error, CustomStringConvertible {
     case invalidSearchTerm(String)
     case invalidSessionId(String)
+    case invalidSessionNumber(String)
     case invalidYear(String)
     case invalidLimit(String)
     case invalidOffset(String)
@@ -245,6 +289,7 @@ public enum FTS5QueryError: Error, CustomStringConvertible {
         switch self {
         case .invalidSearchTerm(let msg): return "Invalid search term: \(msg)"
         case .invalidSessionId(let msg): return "Invalid session ID: \(msg)"
+        case .invalidSessionNumber(let msg): return "Invalid session number: \(msg)"
         case .invalidYear(let msg): return "Invalid year: \(msg)"
         case .invalidLimit(let msg): return "Invalid limit: \(msg)"
         case .invalidOffset(let msg): return "Invalid offset: \(msg)"

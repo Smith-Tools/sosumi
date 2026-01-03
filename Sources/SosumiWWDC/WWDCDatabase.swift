@@ -271,6 +271,36 @@ public class WWDCDatabase {
         return sessions
     }
 
+    /// Gets sessions by session number across years
+    ///
+    /// - Parameters:
+    ///   - sessionNumber: The session number (digits only, e.g., 274, 10102)
+    ///   - limit: Maximum results to return
+    /// - Returns: Array of sessions matching the number
+    /// - Throws: WWDCDatabaseError if validation or query fails
+    public func getSessionsByNumber(_ sessionNumber: String, limit: Int = 50) throws -> [Session] {
+        try ensureInitialized()
+
+        let query = try FTS5QueryHelper.buildSessionNumberQuery(sessionNumber: sessionNumber, limit: limit)
+
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) != SQLITE_OK {
+            let errmsg = String(cString: sqlite3_errmsg(db))
+            throw WWDCDatabaseError.queryFailed(errmsg)
+        }
+
+        var sessions: [Session] = []
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let session = extractSessionFrom(stmt: stmt)
+            sessions.append(session)
+        }
+
+        sqlite3_finalize(stmt)
+
+        return sessions
+    }
+
     /// Gets database statistics
     public func getStatistics() throws -> [String: Any] {
         try ensureInitialized()
